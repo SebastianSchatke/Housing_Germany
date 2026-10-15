@@ -1,0 +1,32 @@
+# Credentials and secrets
+.env
+*.env
+credentials.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Data files (downloaded at runtime)
+*.xlsx
+*.xls
+*.csv
+data.xlsx
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Snowflake
+.snowflake/

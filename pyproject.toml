@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "housing-germany"
+version = "0.1.0"
+description = "Predefined functions for German housing market analysis: indices, prices, and purchasing power."
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Sebastian Schatke"},
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "psycopg2-binary",
+    "sqlalchemy",
+    "python-dateutil",
+    "requests",
+    "beautifulsoup4",
+    "openpyxl",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+snowflake = ["snowflake-snowpark-python"]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
