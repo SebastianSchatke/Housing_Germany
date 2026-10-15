@@ -2,10 +2,8 @@
 Index calculation module.
 
 Submodules:
-    core       - Pure math primitives (pct_evolution, rebase_to_100, etc.)
-    postgres   - Postgres-backed index fetching
-    snowflake  - Snowflake-backed index fetching
-    aggregation - Aggregate index computation
+    core      - Pure math primitives (pct_evolution, rebase_to_100, etc.)
+    functions - Snowflake-backed index fetching and computation
 """
 from housing_germany.indices.core import (
     pct_evolution,
@@ -18,4 +16,10 @@ from housing_germany.indices.core import (
     calcul_evol_from_series,
     calcul_rebase,
     find_first_date_rebase,
+)
+from housing_germany.indices.functions import (
+    load_indices,
+    load_housing_weights,
+    build_index_series,
+    variation_windows,
 )

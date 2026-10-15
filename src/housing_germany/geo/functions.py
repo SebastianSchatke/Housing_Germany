@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-GEO_TABLE = "SILVER_PROD.GEOR_GEOREF.DE_GEO_PLACE"
+GEO_TABLE = "SILVER_PROD.GEOR_GEOREF.GEO_PLACE"
 _PARENT_COL = {"AD04": "AD04", "AD06": "AD06", "AD08": "AD08"}
 _DE_FILTER = "AND ID LIKE '____DE%'"
 

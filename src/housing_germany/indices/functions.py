@@ -69,10 +69,11 @@ def load_housing_weights(session, place_type="AD02") -> dict:
         SELECT ID,
                STATISTICS:"STATS.DE.MA.HOUSING.APARTMENT_COUNT"::FLOAT AS NBAPA,
                STATISTICS:"STATS.DE.MA.HOUSING.HOUSE_COUNT"::FLOAT      AS NBMA
-        FROM GEO_DEV.GEOR_GEOREF.GEO_PLACE_LATEST
+        FROM SILVER_PROD.GEOR_GEOREF.GEO_PLACE
         WHERE TYPE = ?
           AND ID LIKE '____DE%'
           AND STATISTICS:"STATS.DE.MA.HOUSING.APARTMENT_COUNT" IS NOT NULL
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY SNAPSHOT_DATE DESC) = 1
         """,
         params=[place_type],
     ).to_pandas()

@@ -1,15 +1,24 @@
 # Housing Germany
 
-Predefined functions for German housing market analysis. Organized into three domain modules:
+Predefined functions for German housing market analysis, backed by Snowflake.
+
+## Modules
 
 - **`indices`** -- Price index calculations, rebasing, volume-weighted aggregation, evolution between dates
 - **`prices`** -- Absolute price retrieval, implied past prices, variation windows
 - **`purchasing_power`** -- Mortgage formulas, tax rates, income data, interest rates, affordability analysis
-
-Plus shared utilities:
 - **`geo`** -- Geographic entity lookups (countries, states, districts, cities)
 - **`plotting`** -- Charts and PDF generation for purchasing power trends
 - **`config`** -- Shared constants, type mappings, connection helpers
+
+## Snowflake Tables
+
+| Table | Purpose |
+|---|---|
+| `SILVER_PROD.MKKN_INDICE.INDICE_DE` | Price indices (rebased to 100) with volumes |
+| `SILVER_PROD.MKKN_PRICE.PRICE_DE` | Absolute sqm prices per place/item |
+| `SILVER_PROD.GEOR_GEOREF.GEO_PLACE` | Geo entities: names, coordinates, polygons, hierarchy |
+| `GEO_DEV.GEOR_GEOREF.GEO_PLACE_LATEST` | Housing stock counts for volume weighting |
 
 ## Install
 
@@ -17,35 +26,38 @@ Plus shared utilities:
 pip install -e .
 ```
 
-For Snowflake support:
-
-```bash
-pip install -e ".[snowflake]"
-```
-
 ## Usage
 
 ```python
-from housing_germany.indices.core import pct_evolution, rebase_to_100, evolution_between
-from housing_germany.prices.core import implied_price_at
+from housing_germany.config import get_snowpark_session
+
+session = get_snowpark_session()
+
+# Load indices
+from housing_germany.indices.functions import load_indices, build_index_series
+indices = load_indices(session, place_type="AD04")
+series = build_index_series(indices, "hybrid", place_ids=["AD04DE9"])
+
+# Load prices
+from housing_germany.prices.functions import load_prices
+prices = load_prices(session, place_type="AD04")
+
+# Purchasing power (no DB required)
 from housing_germany.purchasing_power.mortgage import mortgage_formula
+factor = mortgage_formula(3.5, years=30)
+
 from housing_germany.purchasing_power.tax import get_tax_rates_DE
+tax_rates = get_tax_rates_DE()
 ```
 
 ## Configuration
 
-Database credentials are loaded from environment variables. Create a `.env` file (not committed):
+Set Snowflake credentials via environment variables:
 
 ```
-DB_HOST=your-host.rds.amazonaws.com
-DB_NAME=indice
-DB_USER=indice
-DB_PASSWORD=your-password
-DB_PORT=6543
+SNOWFLAKE_ACCOUNT=your-account
+SNOWFLAKE_USER=your-user
+SNOWFLAKE_PASSWORD=your-password
+SNOWFLAKE_WAREHOUSE=WH_HOUSING_DEV
+SNOWFLAKE_ROLE=R_HOUSING_RW_DATA_ACCESS_DEV
 ```
-
-## Backends
-
-Each module supports two backends:
-- **Postgres** (`postgres.py`) -- Original iwt_barometer pipeline via psycopg2
-- **Snowflake** (`snowflake.py`) -- Snowflake-native via Snowpark sessions

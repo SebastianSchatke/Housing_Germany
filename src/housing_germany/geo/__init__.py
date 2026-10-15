@@ -2,6 +2,12 @@
 Geographic helper module.
 
 Submodules:
-    postgres  - Postgres-backed geo lookups (miracle.feature)
-    snowflake - Snowflake-backed geo lookups (DE_GEO_PLACE)
+    functions - Snowflake-backed geo lookups (GEO_PLACE)
 """
+from housing_germany.geo.functions import (
+    load_geo,
+    load_geo_polygons,
+    children_of,
+    parent_at_level,
+    place_directory,
+)

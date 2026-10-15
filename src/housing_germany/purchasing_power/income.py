@@ -11,6 +11,8 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
+from housing_germany.geo.functions import GEO_TABLE, _DE_FILTER
+
 
 def income_link_DE_task() -> str | None:
     """Scrape the Bundesagentur website for the latest income Excel download URL."""
@@ -73,12 +75,12 @@ def income_raw_DE_task() -> tuple[pd.DataFrame, str]:
     return income_raw, year
 
 
-def get_income_DE_common(conn, geotype=None) -> tuple[pd.DataFrame, str]:
+def get_income_DE_common(session, geotype=None) -> tuple[pd.DataFrame, str]:
     """
     Get income data matched to geo IDs.
 
     Args:
-        conn: database connection (psycopg2)
+        session: Snowpark session
         geotype: 'AD02DE' (country), 'AD04DE' (Bundeslaender),
                  'AD06DE' (Landkreise/Stadtkreise), or None (all levels)
 
@@ -87,29 +89,36 @@ def get_income_DE_common(conn, geotype=None) -> tuple[pd.DataFrame, str]:
     """
     income_raw, year = income_raw_DE_task()
 
-    key_map = {
-        'AD02DE': ("'AD02DE'", None),
-        'AD04DE': ("'AD04DE'", 2),
-        'AD06DE': ("'AD06DE'", 5),
-        None:     ("'AD02DE', 'AD04DE', 'AD06DE'", None),
+    type_map = {
+        'AD02DE': "'AD02'",
+        'AD04DE': "'AD04'",
+        'AD06DE': "'AD06'",
+        None:     "'AD02', 'AD04', 'AD06'",
     }
-    key_filter_str, _ = key_map[geotype]
+    type_filter = type_map[geotype]
 
-    sql = f"""
-        SELECT id, key, administrative_code, type, display_name
-        FROM miracle.feature
-        WHERE key IN ({key_filter_str})
-        AND active = True
-    """
-    geo = pd.read_sql(sql, conn)
+    geo = session.sql(
+        f"""
+        SELECT ID AS "id",
+               MAX(TYPE) AS "key",
+               MAX(ADMINISTRATIVE_CODE) AS "administrative_code",
+               MAX(TYPE) AS "type",
+               MAX(DISPLAY_NAME) AS "display_name"
+        FROM {GEO_TABLE}
+        WHERE TYPE IN ({type_filter})
+          AND ACTIVE = TRUE
+          {_DE_FILTER}
+        GROUP BY ID
+        """
+    ).to_pandas()
 
     # Normalize administrative_code to match cog format
     geo["administrative_code"] = geo["administrative_code"].astype(str).str.strip()
-    geo.loc[geo["key"] == "AD04DE", "administrative_code"] = (
-        geo.loc[geo["key"] == "AD04DE", "administrative_code"].str.zfill(2)
+    geo.loc[geo["key"] == "AD04", "administrative_code"] = (
+        geo.loc[geo["key"] == "AD04", "administrative_code"].str.zfill(2)
     )
-    geo.loc[geo["key"] == "AD06DE", "administrative_code"] = (
-        geo.loc[geo["key"] == "AD06DE", "administrative_code"].str.zfill(5)
+    geo.loc[geo["key"] == "AD06", "administrative_code"] = (
+        geo.loc[geo["key"] == "AD06", "administrative_code"].str.zfill(5)
     )
 
     # Primary join: administrative_code = cog

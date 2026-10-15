@@ -14,8 +14,7 @@ authors = [
 dependencies = [
     "numpy",
     "pandas",
-    "psycopg2-binary",
-    "sqlalchemy",
+    "snowflake-snowpark-python",
     "python-dateutil",
     "requests",
     "beautifulsoup4",
@@ -24,7 +23,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-snowflake = ["snowflake-snowpark-python"]
 dev = ["pytest"]
 
 [tool.setuptools.packages.find]

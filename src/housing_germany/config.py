@@ -54,24 +54,25 @@ DICT_PREP_AGGREGATE = {
 }
 
 
-def get_postgres_connection(
-    host: str | None = None,
-    db_name: str | None = None,
+def get_snowpark_session(
+    account: str | None = None,
     user: str | None = None,
     password: str | None = None,
-    port: str | None = None,
+    warehouse: str | None = None,
+    role: str | None = None,
 ):
     """
-    Create a psycopg2 connection from explicit args or environment variables.
+    Create a Snowpark session from explicit args or environment variables.
 
-    Environment variables: DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT
+    Environment variables: SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER, SNOWFLAKE_PASSWORD,
+                          SNOWFLAKE_WAREHOUSE, SNOWFLAKE_ROLE
     """
-    import psycopg2
+    from snowflake.snowpark import Session
 
-    return psycopg2.connect(
-        host=host or os.environ.get("DB_HOST"),
-        database=db_name or os.environ.get("DB_NAME"),
-        user=user or os.environ.get("DB_USER"),
-        password=password or os.environ.get("DB_PASSWORD"),
-        port=port or os.environ.get("DB_PORT", "6543"),
-    )
+    return Session.builder.configs({
+        "account": account or os.environ.get("SNOWFLAKE_ACCOUNT"),
+        "user": user or os.environ.get("SNOWFLAKE_USER"),
+        "password": password or os.environ.get("SNOWFLAKE_PASSWORD"),
+        "warehouse": warehouse or os.environ.get("SNOWFLAKE_WAREHOUSE", "WH_HOUSING_DEV"),
+        "role": role or os.environ.get("SNOWFLAKE_ROLE", "R_HOUSING_RW_DATA_ACCESS_DEV"),
+    }).create()

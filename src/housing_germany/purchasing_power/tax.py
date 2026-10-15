@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from housing_germany.geo.functions import GEO_TABLE, _DE_FILTER
+
 
 def get_tax_rates_DE() -> dict[str, float]:
     """Return German Grunderwerbsteuer rates by Bundesland."""
@@ -28,19 +30,18 @@ def get_tax_rates_DE() -> dict[str, float]:
     }
 
 
-def get_tax_by_geo(geoid_list: list[str], conn_mkt, geotype: str = 'AD06DE') -> pd.DataFrame:
+def get_tax_by_geo(geoid_list: list[str], session, geotype: str = 'AD06DE') -> pd.DataFrame:
     """
     Get tax rates for geo IDs by looking up their parent Bundesland.
 
     Args:
         geoid_list: list of geo IDs
-        conn_mkt: database connection (psycopg2)
+        session: Snowpark session
         geotype: geo type key (AD06DE for Kreise, AD04DE for Laender, AD02DE for country)
 
     Returns:
         DataFrame with id and tax columns
     """
-    geoid_str = "','".join(str(g) for g in geoid_list)
     tax_rates = get_tax_rates_DE()
 
     if geotype == 'AD02DE':
@@ -49,33 +50,30 @@ def get_tax_by_geo(geoid_list: list[str], conn_mkt, geotype: str = 'AD06DE') -> 
             'tax': [0.05] * len(geoid_list),
         })
 
-    if geotype == 'AD04DE':
-        sql = f"""
-            SELECT id, display_name
-            FROM miracle.feature
-            WHERE id IN ('{geoid_str}')
-            AND active = True
-        """
-        geo = pd.read_sql(sql, conn_mkt)
-        geo['display_name'] = geo['display_name'].str.strip().str.rstrip(',').str.strip()
-        geo['tax'] = geo['display_name'].map(tax_rates).fillna(0.05)
-        return geo[['id', 'tax']]
+    geoid_str = "','".join(str(g) for g in geoid_list)
 
-    # AD06DE or AD08DE: look up parent Bundesland
-    sql = f"""
-        SELECT
-            child.id,
-            parent.display_name AS bundesland
-        FROM miracle.feature AS child
-        JOIN miracle.feature AS parent
-            ON parent.id = ANY(
-                SELECT jsonb_array_elements_text(child.parents)
-            )
-        WHERE child.id IN ('{geoid_str}')
-        AND parent.key = 'AD04DE'
-        AND parent.active = True
-    """
-    geo = pd.read_sql(sql, conn_mkt)
-    geo['bundesland'] = geo['bundesland'].str.strip().str.rstrip(',').str.strip()
-    geo['tax'] = geo['bundesland'].map(tax_rates).fillna(0.05)
-    return geo[['id', 'tax']]
+    if geotype == 'AD04DE':
+        df = session.sql(
+            f"""
+            SELECT ID AS "id", MAX(NAME) AS "name"
+            FROM {GEO_TABLE}
+            WHERE ID IN ('{geoid_str}') {_DE_FILTER}
+            GROUP BY ID
+            """
+        ).to_pandas()
+        df['tax'] = df['name'].map(tax_rates).fillna(0.05)
+        return df[['id', 'tax']]
+
+    # AD06DE or AD08DE: look up parent Bundesland via AD04 array
+    df = session.sql(
+        f"""
+        SELECT ID AS "id",
+               MAX(AD04_NAMES[0]::string) AS "bundesland"
+        FROM {GEO_TABLE}
+        WHERE ID IN ('{geoid_str}') {_DE_FILTER}
+        GROUP BY ID
+        """
+    ).to_pandas()
+    df['bundesland'] = df['bundesland'].str.strip().str.rstrip(',').str.strip()
+    df['tax'] = df['bundesland'].map(tax_rates).fillna(0.05)
+    return df[['id', 'tax']]
