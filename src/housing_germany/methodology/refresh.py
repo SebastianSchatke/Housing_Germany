@@ -1,8 +1,8 @@
 """
 Refresh pipeline for the tables the dashboard reads.
 
-Each table is built as <TABLE>_NEXT, checked, and swapped in only if the
-checks pass (one automatic rebuild before flagging). A failed refresh leaves
+Each table is built as <TABLE>_NEXT, checked, and published with INSERT
+OVERWRITE only if the checks pass (one automatic rebuild before flagging). A failed refresh leaves
 the published table untouched and writes an ISSUES row.
 
 After MARKET_SUMMARY is refreshed, a drift probe compares its SQL windows with
@@ -164,7 +164,9 @@ def refresh_table(session, cfg: dict, max_attempts: int = 2) -> dict:
         date_col = "INDEX_DATE" if cfg["table"] == "INDEX_SERIES" else "LATEST_DATE"
         snapshot = str(_scalar(session, f"SELECT MAX({date_col}) FROM {candidate}"))
         if _table_exists(session, published):
-            session.sql(f"ALTER TABLE {candidate} SWAP WITH {published}").collect()
+            # INSERT OVERWRITE is atomic and keeps the published table's owner and
+            # grants, so dashboard roles keep access (CREATE OR REPLACE / SWAP would not).
+            session.sql(f"INSERT OVERWRITE INTO {published} SELECT * FROM {candidate}").collect()
             session.sql(f"DROP TABLE IF EXISTS {candidate}").collect()
         else:
             session.sql(f"ALTER TABLE {candidate} RENAME TO {published}").collect()
