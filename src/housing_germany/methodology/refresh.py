@@ -148,28 +148,26 @@ def refresh_table(session, cfg: dict, max_attempts: int = 2) -> dict:
     published = f"{PUBLISHED}.{cfg['table']}"
     candidate = f"{published}_NEXT"
     run_id, started = str(uuid.uuid4()), time.time()
-    tag = f"housing_refresh:{cfg['table']}:{run_id}"
+    # Owner's-rights procedures can't ALTER SESSION, so no QUERY_TAG here; cost is
+    # attributed via the run's STARTED_AT/FINISHED_AT window in QUERY_HISTORY.
+    tag = None
     build_sql = _sql_file(cfg["sql"]).replace("{target}", candidate)
-    session.sql(f"ALTER SESSION SET QUERY_TAG = '{tag}'").collect()
     checks, attempt = [], 0
-    try:
-        for attempt in range(1, max_attempts + 1):
-            session.sql(build_sql).collect()
-            checks = run_table_checks(session, candidate, published, cfg["checks"])
-            if all(c["passed"] for c in checks):
-                break
-        passed = all(c["passed"] for c in checks)
-        snapshot = None
-        if passed:
-            date_col = "INDEX_DATE" if cfg["table"] == "INDEX_SERIES" else "LATEST_DATE"
-            snapshot = str(_scalar(session, f"SELECT MAX({date_col}) FROM {candidate}"))
-            if _table_exists(session, published):
-                session.sql(f"ALTER TABLE {candidate} SWAP WITH {published}").collect()
-                session.sql(f"DROP TABLE IF EXISTS {candidate}").collect()
-            else:
-                session.sql(f"ALTER TABLE {candidate} RENAME TO {published}").collect()
-    finally:
-        session.sql("ALTER SESSION UNSET QUERY_TAG").collect()
+    for attempt in range(1, max_attempts + 1):
+        session.sql(build_sql).collect()
+        checks = run_table_checks(session, candidate, published, cfg["checks"])
+        if all(c["passed"] for c in checks):
+            break
+    passed = all(c["passed"] for c in checks)
+    snapshot = None
+    if passed:
+        date_col = "INDEX_DATE" if cfg["table"] == "INDEX_SERIES" else "LATEST_DATE"
+        snapshot = str(_scalar(session, f"SELECT MAX({date_col}) FROM {candidate}"))
+        if _table_exists(session, published):
+            session.sql(f"ALTER TABLE {candidate} SWAP WITH {published}").collect()
+            session.sql(f"DROP TABLE IF EXISTS {candidate}").collect()
+        else:
+            session.sql(f"ALTER TABLE {candidate} RENAME TO {published}").collect()
 
     status = ("passed" if attempt == 1 else "rerun_passed") if passed else "flagged"
     result = {"table": cfg["table"], "published": passed, "data_snapshot": snapshot}
