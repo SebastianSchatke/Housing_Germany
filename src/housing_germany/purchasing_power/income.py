@@ -1,78 +1,18 @@
 """
-German income data scraping and processing.
+German income data processing.
 
-Fetches median net income data from the Bundesagentur fuer Arbeit website
-and matches it to geo IDs via administrative codes.
+Fetches median net income data from the Bundesagentur fuer Arbeit
+(via macro_fetcher) and matches it to geo IDs via administrative codes.
 """
 from __future__ import annotations
 
-import re
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
 
 from housing_germany.geo.functions import GEO_TABLE, _DE_FILTER
+from housing_germany.macro_fetcher import fetch_income
 
-
-def income_link_DE_task() -> str | None:
-    """Scrape the Bundesagentur website for the latest income Excel download URL."""
-    url = "https://statistik.arbeitsagentur.de/SiteGlobals/Forms/Suche/Einzelheftsuche_Formular.html?nn=1523076&topic_f=beschaeftigung-entgelt-entgelt"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    excel_links = soup.find_all('span', class_='doctypeLabel', title='Format: Excel')
-    if excel_links:
-        first_excel_url = excel_links[0].find_parent('a')['href']
-        print("URL of the first Excel file:", first_excel_url)
-        return first_excel_url
-    print("No Excel files found on the webpage.")
-    return None
-
-
-def income_raw_DE_task() -> tuple[pd.DataFrame, str]:
-    """Download and parse the income Excel file into a cleaned DataFrame."""
-    first_excel_url = income_link_DE_task()
-    excel_url = f"https://statistik.arbeitsagentur.de{first_excel_url}"
-
-    response = requests.get(excel_url)
-    with open("data.xlsx", "wb") as f:
-        f.write(response.content)
-
-    income_raw = (
-        pd.read_excel("data.xlsx", sheet_name="8.2", skiprows=8)
-        .iloc[:, :7]
-        .rename(columns={"Unnamed: 0": "cog", "Unnamed: 1": "place", "Unnamed: 2": "sort"})
-    )
-
-    # Keep only Insgesamt rows, drop West/Ost aggregates
-    income_raw = income_raw[income_raw["sort"] == "Insgesamt"]
-    income_raw = income_raw[~income_raw["cog"].isin(["W", "O"])]
-
-    # Normalize cog: Deutschland -> 'de', everything else zero-pad
-    income_raw["cog"] = income_raw["cog"].astype(str).str.strip()
-    income_raw.loc[income_raw["cog"] == "D", "cog"] = "de"
-
-    def normalize_cog(val):
-        if val == "de":
-            return val
-        if val.isdigit():
-            return val.zfill(2) if len(val) <= 2 else val.zfill(5)
-        return val
-
-    income_raw["cog"] = income_raw["cog"].apply(normalize_cog)
-
-    # Rename year columns: Excel serial dates -> actual year + 1
-    income_raw.columns = [str(col).split()[0] for col in income_raw.columns]
-    year_cols = {
-        col: str(int(col[:4]) + 1)
-        for col in income_raw.columns
-        if col not in ["cog", "place", "sort"] and col[:4].isdigit()
-    }
-    income_raw = income_raw.rename(columns=year_cols)
-
-    pattern = r'/Detail/(\d{4})'
-    year = re.search(pattern, first_excel_url).group(1)
-
-    return income_raw, year
+# Backward-compatible alias
+income_raw_DE_task = fetch_income
 
 
 def get_income_DE_common(session, geotype=None) -> tuple[pd.DataFrame, str]:
@@ -87,7 +27,7 @@ def get_income_DE_common(session, geotype=None) -> tuple[pd.DataFrame, str]:
     Returns:
         Tuple of (income DataFrame with geo IDs, year string)
     """
-    income_raw, year = income_raw_DE_task()
+    income_raw, year = fetch_income()
 
     type_map = {
         'AD02DE': "'AD02'",
