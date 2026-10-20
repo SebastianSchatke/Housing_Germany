@@ -15,6 +15,7 @@ import pandas as pd
 import market_insights as mi
 
 _SCHEMA = "HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS"
+_PARENT_COLS = {"PARENT_AD04", "PARENT_AD06"}
 
 
 # ---------------------------------------------------------------------------
@@ -38,10 +39,10 @@ def get_index_series(_session, transaction_type, place_type):
     return _session.sql(f"""
         SELECT PLACE_ID, ITEM_TYPE, INDEX_DATE, INDEX_VALUE, VOLUME
         FROM {_SCHEMA}.INDEX_SERIES
-        WHERE TRANSACTION_TYPE = '{transaction_type}'
-          AND PLACE_TYPE = '{place_type}'
+        WHERE TRANSACTION_TYPE = ?
+          AND PLACE_TYPE = ?
         ORDER BY PLACE_ID, ITEM_TYPE, INDEX_DATE
-    """).to_pandas()
+    """, params=[transaction_type, place_type]).to_pandas()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -50,10 +51,10 @@ def get_price_history(_session, transaction_type, place_id):
     return _session.sql(f"""
         SELECT ITEM_TYPE, INDEX_DATE, PRICE_SQM
         FROM {_SCHEMA}.PRICE_HISTORY
-        WHERE TRANSACTION_TYPE = '{transaction_type}'
-          AND PLACE_ID = '{place_id}'
+        WHERE TRANSACTION_TYPE = ?
+          AND PLACE_ID = ?
         ORDER BY ITEM_TYPE, INDEX_DATE
-    """).to_pandas()
+    """, params=[transaction_type, place_id]).to_pandas()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -65,9 +66,9 @@ def get_market_summary(_session, transaction_type, place_type):
                VAR_1M, VAR_3M, VAR_6M, VAR_YTD,
                VAR_1Y, VAR_2Y, VAR_3Y, VAR_5Y, VAR_ALL
         FROM {_SCHEMA}.MARKET_SUMMARY
-        WHERE TRANSACTION_TYPE = '{transaction_type}'
-          AND PLACE_TYPE = '{place_type}'
-    """).to_pandas()
+        WHERE TRANSACTION_TYPE = ?
+          AND PLACE_TYPE = ?
+    """, params=[transaction_type, place_type]).to_pandas()
 
 
 # --- Geo loaders ---
@@ -80,8 +81,8 @@ def get_geo(_session, place_type):
                POPULATION AS "population", LAT AS "lat", LON AS "lon",
                PARENT_AD04 AS "parent_ad04", PARENT_AD06 AS "parent_ad06"
         FROM {_SCHEMA}.GEO_PLACES
-        WHERE PLACE_TYPE = '{place_type}'
-    """).to_pandas()
+        WHERE PLACE_TYPE = ?
+    """, params=[place_type]).to_pandas()
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -108,8 +109,8 @@ def get_parent(_session, place_id):
         SELECT PLACE_TYPE AS "type", NAME AS "name",
                PARENT_AD04 AS "ad04", PARENT_AD06 AS "ad06"
         FROM {_SCHEMA}.GEO_PLACES
-        WHERE PLACE_ID = '{place_id}'
-    """).to_pandas()
+        WHERE PLACE_ID = ?
+    """, params=[place_id]).to_pandas()
     return {} if df.empty else df.iloc[0].to_dict()
 
 
@@ -119,26 +120,30 @@ def get_nearby_places(_session, lat, lon, place_type, limit=40):
     return _session.sql(f"""
         SELECT PLACE_ID AS "place_id", NAME AS "name", LAT AS "lat", LON AS "lon",
                PARENT_AD04 AS "parent_ad04", PARENT_AD06 AS "parent_ad06",
-               HAVERSINE({lat}, {lon}, LAT, LON) AS "distance_km"
+               HAVERSINE(?, ?, LAT, LON) AS "distance_km"
         FROM {_SCHEMA}.GEO_PLACES
-        WHERE PLACE_TYPE = '{place_type}' AND LAT IS NOT NULL
+        WHERE PLACE_TYPE = ? AND LAT IS NOT NULL
         ORDER BY "distance_km"
-        LIMIT {limit}
-    """).to_pandas()
+        LIMIT {int(limit)}
+    """, params=[float(lat), float(lon), place_type]).to_pandas()
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def get_polygons(_session, place_type, parent_col=None, parent_id=None):
     """GeoJSON polygons for choropleth maps, optionally filtered by parent."""
-    where = f"WHERE p.PLACE_TYPE = '{place_type}'"
+    where = "WHERE p.PLACE_TYPE = ?"
+    params = [place_type]
     if parent_col and parent_id:
-        where += f" AND g.{parent_col} = '{parent_id}'"
+        if parent_col not in _PARENT_COLS:
+            raise ValueError(f"Unsupported parent column: {parent_col}")
+        where += f" AND g.{parent_col} = ?"
+        params.append(parent_id)
     return _session.sql(f"""
         SELECT p.PLACE_ID AS "place_id", p.NAME AS "name", p.GEOJSON AS "geojson"
         FROM {_SCHEMA}.GEO_POLYGONS p
         JOIN {_SCHEMA}.GEO_PLACES g ON p.PLACE_ID = g.PLACE_ID
         {where}
-    """).to_pandas()
+    """, params=params).to_pandas()
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -146,13 +151,13 @@ def get_nearby_polygons(_session, lat, lon, place_type, limit=50):
     """GeoJSON polygons for the nearest places by distance."""
     return _session.sql(f"""
         SELECT p.PLACE_ID AS "place_id", p.NAME AS "name", p.GEOJSON AS "geojson",
-               HAVERSINE({lat}, {lon}, g.LAT, g.LON) AS "distance_km"
+               HAVERSINE(?, ?, g.LAT, g.LON) AS "distance_km"
         FROM {_SCHEMA}.GEO_POLYGONS p
         JOIN {_SCHEMA}.GEO_PLACES g ON p.PLACE_ID = g.PLACE_ID
-        WHERE p.PLACE_TYPE = '{place_type}' AND g.LAT IS NOT NULL
+        WHERE p.PLACE_TYPE = ? AND g.LAT IS NOT NULL
         ORDER BY "distance_km"
-        LIMIT {limit}
-    """).to_pandas()
+        LIMIT {int(limit)}
+    """, params=[float(lat), float(lon), place_type]).to_pandas()
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -160,8 +165,8 @@ def get_sibling_count(_session, district_id):
     """Count AD08 cities in a district (to detect kreisfreie Städte)."""
     df = _session.sql(f"""
         SELECT COUNT(*) AS "cnt" FROM {_SCHEMA}.GEO_PLACES
-        WHERE PLACE_TYPE = 'AD08' AND PARENT_AD06 = '{district_id}'
-    """).to_pandas()
+        WHERE PLACE_TYPE = 'AD08' AND PARENT_AD06 = ?
+    """, params=[district_id]).to_pandas()
     return int(df.iloc[0]["cnt"]) if not df.empty else 0
 
 
@@ -173,7 +178,7 @@ def get_income(_session, place_id):
     return _session.sql(f"""
         SELECT CATEGORY, MEDIAN_2021, MEDIAN_2022, MEDIAN_2023, MEDIAN_2024, MEDIAN_2025
         FROM {_SCHEMA}.INCOME_MAPPED
-        WHERE PLACE_ID = '{place_id}'
+        WHERE PLACE_ID = ?
         ORDER BY CASE CATEGORY
             WHEN 'Insgesamt' THEN 1
             WHEN 'Männer' THEN 2
@@ -192,7 +197,7 @@ def get_income(_session, place_id):
             WHEN 'Experte' THEN 15
             ELSE 99
         END
-    """).to_pandas()
+    """, params=[place_id]).to_pandas()
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -207,7 +212,7 @@ def get_income_national(_session):
 
 # --- Demographics loaders ---
 
-_SRC_GEO = "SILVER_PROD.GEOR_GEOREF.DE_GEO_PLACE"
+_SRC_GEO = "SILVER_PROD.GEOR_GEOREF.GEO_PLACE"
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -231,9 +236,9 @@ def get_demographics(_session, place_id, parent_ad06=None):
                 STATISTICS:"STATS.FAM.PCT_HH_SINGLE"::FLOAT AS "pct_hh_single",
                 STATISTICS:"STATS.FAM.PCT_HH_FAMILY"::FLOAT AS "pct_hh_family"
             FROM {_SRC_GEO}
-            WHERE ID = '{lookup_id}' AND ACTIVE = TRUE
-            LIMIT 1
-        """).to_pandas()
+            WHERE ID = ? AND ACTIVE = TRUE
+            QUALIFY ROW_NUMBER() OVER (ORDER BY SNAPSHOT_DATE DESC) = 1
+        """, params=[lookup_id]).to_pandas()
     except Exception:
         # Source geo table not accessible for this role — degrade gracefully.
         return {}
@@ -250,9 +255,9 @@ def get_population(_session, place_id):
         df = _session.sql(f"""
             SELECT POPULATION AS "population"
             FROM {_SCHEMA}.GEO_PLACES
-            WHERE PLACE_ID = '{place_id}'
+            WHERE PLACE_ID = ?
             LIMIT 1
-        """).to_pandas()
+        """, params=[place_id]).to_pandas()
     except Exception:
         return None
     if df.empty or pd.isna(df.iloc[0]["population"]):
@@ -284,8 +289,8 @@ def get_purchasing_power(_session, place_id):
                PP_SQM_SINGLE_NO_REALTOR, PP_SQM_FAMILY_NO_REALTOR,
                ANNUAL_RATE, MORTGAGE_FACTOR, TAX_RATE
         FROM {_SCHEMA}.PURCHASING_POWER
-        WHERE PLACE_ID = '{place_id}'
-    """).to_pandas()
+        WHERE PLACE_ID = ?
+    """, params=[place_id]).to_pandas()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -296,9 +301,9 @@ def get_purchasing_power_history(_session, place_id):
                PP_SQM_SINGLE_W_REALTOR, PP_SQM_FAMILY_W_REALTOR,
                PP_SQM_SINGLE_NO_REALTOR, PP_SQM_FAMILY_NO_REALTOR
         FROM {_SCHEMA}.PURCHASING_POWER_HISTORY
-        WHERE PLACE_ID = '{place_id}'
+        WHERE PLACE_ID = ?
         ORDER BY ITEM_TYPE, INDEX_DATE
-    """).to_pandas()
+    """, params=[place_id]).to_pandas()
 
 
 # --- Demand loaders ---
@@ -312,9 +317,9 @@ def get_demand(_session, place_name, place_type):
     return _session.sql(f"""
         SELECT MONTH_DATE, CLICKS_BUY, CLICKS_RENT, SEARCH_VIEWS_BUY, SEARCH_VIEWS_RENT, LEADS_BUY, LEADS_RENT
         FROM {_SCHEMA}.DEMAND_MONTHLY
-        WHERE PLACE_NAME = '{lookup_name}' AND PLACE_LEVEL = '{level}'
+        WHERE PLACE_NAME = ? AND PLACE_LEVEL = ?
         ORDER BY MONTH_DATE
-    """).to_pandas()
+    """, params=[lookup_name, level]).to_pandas()
 
 
 # --- Listings insights loaders ---
@@ -330,8 +335,8 @@ def get_listings_insights(_session, place_name, place_type, txn_type):
         SELECT MONTH_DATE, ESTATE_TYPE, NEW_LISTINGS, ACTIVE_LISTINGS,
                MEDIAN_DAYS_ON_MARKET, AVG_PRICE_SQM, AVG_SIZE_SQM, AVG_ROOMS
         FROM {_SCHEMA}.LISTINGS_INSIGHTS
-        WHERE PLACE_NAME = '{lookup_name}' AND PLACE_LEVEL = '{level}'
-          AND TXN_TYPE = '{txn}'
+        WHERE PLACE_NAME = ? AND PLACE_LEVEL = ?
+          AND TXN_TYPE = ?
           AND ESTATE_TYPE IN ('APARTMENT', 'HOUSE')
         ORDER BY ESTATE_TYPE, MONTH_DATE
-    """).to_pandas()
+    """, params=[lookup_name, level, txn]).to_pandas()

@@ -30,3 +30,6 @@ Thumbs.db
 
 # Snowflake
 .snowflake/
+
+# Vendored at deploy time by apps/housing_dashboard/deploy.sh
+apps/housing_dashboard/housing_germany/

@@ -12,4 +12,5 @@ entities:
       - market_insights.py
       - data.py
       - report.py
+      - housing_germany/
       - .streamlit/config.toml

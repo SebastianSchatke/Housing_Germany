@@ -9,16 +9,22 @@ import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# --- Build a live Snowpark session from the container session token ---
+# --- Build a live Snowpark session: container token in Snowflake, local connection otherwise ---
 from snowflake.snowpark import Session
 
-token = open(os.environ.get("SNOWFLAKE_TOKEN_FILE_PATH", "/snowflake/session/token")).read().strip()
-session = Session.builder.configs({
-    "account": os.environ["SNOWFLAKE_ACCOUNT"],
-    "host": os.environ["SNOWFLAKE_HOST"],
-    "authenticator": "oauth",
-    "token": token,
-}).create()
+_token_path = os.environ.get("SNOWFLAKE_TOKEN_FILE_PATH", "/snowflake/session/token")
+if os.path.exists(_token_path):
+    token = open(_token_path).read().strip()
+    session = Session.builder.configs({
+        "account": os.environ["SNOWFLAKE_ACCOUNT"],
+        "host": os.environ["SNOWFLAKE_HOST"],
+        "authenticator": "oauth",
+        "token": token,
+    }).create()
+else:
+    session = Session.builder.config(
+        "connection_name", os.environ.get("SNOWFLAKE_CONNECTION_NAME", "aviv-prod")
+    ).create()
 session.sql("USE ROLE SNF_R_DATA_ANALYST").collect()
 session.sql("USE WAREHOUSE WH_PROD_PERSONA").collect()
 
@@ -118,8 +124,13 @@ def run_page(path, txn, item):
         return "FAIL\n" + traceback.format_exc()
 
 
-PAGES = ["app_pages/national.py", "app_pages/states.py", "app_pages/districts_map.py",
-         "app_pages/top_cities.py", "app_pages/place_search.py"]
+# streamlit_app.py is the deployed entry point (see snowflake.yml). app_pages/ are
+# not deployed and still call data.get_prices, which data.py has never defined;
+# run them with --include-legacy-pages.
+PAGES = ["streamlit_app.py"]
+if "--include-legacy-pages" in sys.argv:
+    PAGES += ["app_pages/national.py", "app_pages/states.py", "app_pages/districts_map.py",
+              "app_pages/top_cities.py", "app_pages/place_search.py"]
 
 TXN = {"SELL": "TRANSACTION_TYPE.SELL", "RENT": "TRANSACTION_TYPE.RENT"}
 
