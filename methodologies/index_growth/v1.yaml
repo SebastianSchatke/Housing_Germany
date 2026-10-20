@@ -31,6 +31,7 @@ fixed_choices:
   metric: METRIC.SQM_PRICE
   index_version: latest RECORD_TS per place and item
   hybrid_build: house + apartment rebased to their common start date
+  hybrid_source: computed, never read from INDICE_DE ITEM_TYPE.HYBRID (no longer published since 2026-10)
   hybrid_weights: housing stock (STATS.DE.MA.HOUSING.APARTMENT_COUNT / HOUSE_COUNT)
   window_anchor: latest index date; past value = last observation at or before the anchor minus window
   ytd_base: December of the previous year

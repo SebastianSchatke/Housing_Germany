@@ -24,9 +24,11 @@ from housing_germany.indices.functions import (
     load_indices,
     variation_windows,
 )
+from housing_germany.indices.hybrid import hybrid_from_long
 
 PUBLISHED = "HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS"
 AGENTS = "HOUSING_DEV.MARKET_INSIGHTS_AGENTS"
+HYBRID_CHUNK = 1500  # places per pandas batch when computing hybrid
 
 # Table-level checks. min_rows_ratio guards against a partial source load.
 TABLES = [
@@ -34,6 +36,9 @@ TABLES = [
         "table": "INDEX_SERIES",
         "sql": "index_series.sql",
         "methodology": "index_growth",
+        # INDICE_DE no longer publishes ITEM_TYPE.HYBRID (2026-10): hybrid is computed
+        # from house + apartment with the index_growth v1 formula.
+        "computed_hybrid": True,
         "checks": [
             {"type": "min_rows_ratio", "ratio": 0.95},
             {"type": "segments_present", "columns": ["PLACE_TYPE", "TRANSACTION_TYPE", "ITEM_TYPE"]},
@@ -153,6 +158,40 @@ def _issue(session, severity, kind, methodology, version, run_id, message, detai
     ).collect()
 
 
+def add_computed_hybrid(session, candidate: str) -> dict:
+    """Replace source HYBRID rows in the candidate with hybrid computed from house + apartment."""
+    db, schema, table = candidate.split(".")
+    session.sql(f"DELETE FROM {candidate} WHERE ITEM_TYPE = 'ITEM_TYPE.HYBRID'").collect()
+    item_map = {"ITEM_TYPE.HOUSE": "house", "ITEM_TYPE.APARTMENT": "apartment"}
+    written = 0
+    for (place_type,) in session.sql(f"SELECT DISTINCT PLACE_TYPE FROM {candidate} ORDER BY 1").collect():
+        weights = load_housing_weights(session, place_type)
+        places = [r[0] for r in session.sql(
+            f"SELECT DISTINCT PLACE_ID FROM {candidate} WHERE PLACE_TYPE = ? ORDER BY 1", params=[place_type]
+        ).collect()]
+        for i in range(0, len(places), HYBRID_CHUNK):
+            chunk = places[i:i + HYBRID_CHUNK]
+            long_df = session.sql(
+                f"""SELECT PLACE_ID, TRANSACTION_TYPE, ITEM_TYPE, INDEX_DATE, INDEX_VALUE, VOLUME
+                    FROM {candidate}
+                    WHERE PLACE_TYPE = ? AND ITEM_TYPE IN ('ITEM_TYPE.HOUSE', 'ITEM_TYPE.APARTMENT')
+                      AND PLACE_ID IN ({', '.join('?' for _ in chunk)})""",
+                params=[place_type, *chunk],
+            ).to_pandas()
+            if long_df.empty:
+                continue
+            long_df["item"] = long_df["ITEM_TYPE"].map(item_map)
+            hyb = hybrid_from_long(long_df, weights)
+            hyb.insert(1, "PLACE_TYPE", place_type)
+            hyb.insert(3, "ITEM_TYPE", "ITEM_TYPE.HYBRID")
+            hyb = hyb[["PLACE_ID", "PLACE_TYPE", "TRANSACTION_TYPE", "ITEM_TYPE",
+                       "INDEX_DATE", "INDEX_VALUE", "VOLUME"]]
+            session.write_pandas(hyb, table, database=db, schema=schema, auto_create_table=False,
+                                 quote_identifiers=True, use_logical_type=True)
+            written += len(hyb)
+    return {"hybrid_rows": written}
+
+
 def refresh_table(session, cfg: dict, max_attempts: int = 2) -> dict:
     published = f"{PUBLISHED}.{cfg['table']}"
     candidate = f"{published}_NEXT"
@@ -161,9 +200,11 @@ def refresh_table(session, cfg: dict, max_attempts: int = 2) -> dict:
     # attributed via the run's STARTED_AT/FINISHED_AT window in QUERY_HISTORY.
     tag = None
     build_sql = _sql_file(cfg["sql"]).replace("{target}", candidate)
-    checks, attempt = [], 0
+    checks, attempt, extra = [], 0, {}
     for attempt in range(1, max_attempts + 1):
         session.sql(build_sql).collect()
+        if cfg.get("computed_hybrid"):
+            extra = add_computed_hybrid(session, candidate)
         checks = run_table_checks(session, candidate, published, cfg["checks"])
         if all(c["passed"] for c in checks):
             break
@@ -181,7 +222,7 @@ def refresh_table(session, cfg: dict, max_attempts: int = 2) -> dict:
             session.sql(f"ALTER TABLE {candidate} RENAME TO {published}").collect()
 
     status = ("passed" if attempt == 1 else "rerun_passed") if passed else "flagged"
-    result = {"table": cfg["table"], "published": passed, "data_snapshot": snapshot}
+    result = {"table": cfg["table"], "published": passed, "data_snapshot": snapshot, **extra}
     version = _log(session, run_id, cfg["methodology"], status, checks, result, attempt, started, tag, snapshot)
     if not passed:
         _issue(session, "error", "check_failed", cfg["methodology"], version, run_id,
