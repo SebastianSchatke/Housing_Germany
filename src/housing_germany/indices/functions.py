@@ -34,21 +34,29 @@ def _as_list(v):
     return list(v)
 
 
-def load_indices(session, place_type="AD02", transaction_type="TRANSACTION_TYPE.SELL") -> pd.DataFrame:
+def load_indices(session, place_type="AD02", transaction_type="TRANSACTION_TYPE.SELL",
+                 place_ids=None) -> pd.DataFrame:
     """
     Tidy index frame from INDICE_DE. One row per (place, item, transaction)
     with dates, values and volumes as Python lists.
+
+    `place_ids` optionally restricts the query to specific places.
     """
+    place_filter, params = "", [place_type, transaction_type]
+    if place_ids:
+        place_filter = f"AND PLACE_ID IN ({', '.join('?' for _ in place_ids)})"
+        params += list(place_ids)
     df = session.sql(
-        """
+        f"""
         SELECT PLACE_ID, ITEM_TYPE, TRANSACTION_TYPE, DATES, "VALUES", VOLUMES
         FROM SILVER_PROD.MKKN_INDICE.INDICE_DE
         WHERE PLACE_TYPE = ?
           AND METRIC = 'METRIC.SQM_PRICE'
           AND TRANSACTION_TYPE = ?
+          {place_filter}
         QUALIFY ROW_NUMBER() OVER (PARTITION BY PLACE_ID, ITEM_TYPE ORDER BY RECORD_TS DESC) = 1
         """,
-        params=[place_type, transaction_type],
+        params=params,
     ).to_pandas()
     df["item"] = df["ITEM_TYPE"].map(ITEM_TYPE_KEYS)
     for col in ("DATES", "VALUES", "VOLUMES"):
