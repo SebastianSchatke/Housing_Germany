@@ -36,6 +36,7 @@ TABLES = [
         "methodology": "index_growth",
         "checks": [
             {"type": "min_rows_ratio", "ratio": 0.95},
+            {"type": "segments_present", "columns": ["PLACE_TYPE", "TRANSACTION_TYPE", "ITEM_TYPE"]},
             {"type": "no_nulls", "columns": ["PLACE_ID", "INDEX_DATE", "INDEX_VALUE"]},
             {"type": "range", "column": "INDEX_VALUE", "min": 1, "max": 1000},
             {"type": "not_older_than_previous", "column": "INDEX_DATE"},
@@ -107,6 +108,14 @@ def run_table_checks(session, candidate: str, published: str, checks: list[dict]
             share = _scalar(session, f"SELECT COUNT({col}) / NULLIF(COUNT(*), 0) FROM {candidate}") or 0
             results.append({"check": f"completeness:{col}", "passed": float(share) >= c["min_share_non_null"],
                             "detail": {"share_non_null": float(share)}})
+        elif kind == "segments_present":
+            keys = ", ".join(c["columns"])
+            missing = session.sql(
+                f"""SELECT {keys} FROM (SELECT DISTINCT {keys} FROM {published})
+                    EXCEPT SELECT DISTINCT {keys} FROM {candidate}"""
+            ).collect() if has_previous else []
+            results.append({"check": f"segments_present:{keys}", "passed": not missing,
+                            "detail": {"missing": ["/".join(str(v) for v in r) for r in missing]}})
         elif kind == "not_older_than_previous":
             col = c["column"]
             new = _scalar(session, f"SELECT MAX({col}) FROM {candidate}")
@@ -127,7 +136,7 @@ def _log(session, run_id, methodology, status, checks, result, attempt, started,
             (RUN_ID, REQUEST_HASH, METHODOLOGY_ID, VERSION, COMMIT_SHA, PARAMS, DATA_SNAPSHOT, STATUS,
              CHECK_RESULTS, RESULT, ATTEMPT, STARTED_AT, FINISHED_AT, RUNTIME_SECONDS, QUERY_TAG)
             SELECT ?, ?, ?, ?, ?, PARSE_JSON(?), ?, ?, PARSE_JSON(?), PARSE_JSON(?), ?,
-                   TO_TIMESTAMP_LTZ(?), CURRENT_TIMESTAMP(), ?, ?""",
+                   CONVERT_TIMEZONE('UTC', TO_TIMESTAMP_NTZ(?::NUMBER(38, 3))), CURRENT_TIMESTAMP(), ?, ?""",
         params=[run_id, f"refresh:{run_id}", methodology, int(version), sha,
                 json.dumps({"refresh": result.get("table")}), snapshot, status,
                 json.dumps(checks, default=str), json.dumps(result, default=str), attempt,
