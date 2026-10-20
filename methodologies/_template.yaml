@@ -1,0 +1,26 @@
+# Methodology spec template. Copy to methodologies/<id>/v<N>.yaml.
+# Only status: approved versions can be executed. Changing calculation logic
+# means a new version file via pull request; old versions stay runnable.
+id: <snake_case_id>
+version: 1
+status: draft            # draft | approved | deprecated
+title: <one line>
+owner: <team or person>
+question_patterns:       # phrases the orchestrator uses to route requests here
+  - "<example question>"
+inputs:                  # every parameter a caller may set, with allowed values
+  geography:
+    levels: [AD02, AD04, AD06, AD08]
+    required: true
+sources:                 # fully qualified tables/views read
+  - <DB.SCHEMA.TABLE>
+implementation:          # exact code path; no other code may produce this indicator
+  function: <python.module.function or SQL object>
+fixed_choices:           # decisions callers cannot override
+  <name>: <value>
+outputs:
+  table: <DB.SCHEMA.TABLE>
+  grain: [<columns>]
+checks:                  # run by VALIDATE_RUN after every refresh
+  - {type: not_empty}
+open_questions: []       # known gaps; anything here must be resolved before approval

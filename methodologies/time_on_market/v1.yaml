@@ -1,0 +1,32 @@
+id: time_on_market
+version: 1
+status: draft
+title: Median days on market for listings, by month
+owner: Housing Market Insights
+question_patterns:
+  - "how long do properties stay on the market in <place>"
+  - "time on market"
+  - "Vermarktungsdauer"
+inputs:
+  geography:
+    levels: [AD02, AD04, AD06]   # LISTINGS_INSIGHTS uses NATIONAL / REGION / PROVINCE by name
+    required: true
+  estate_type:
+    allowed: [APARTMENT, HOUSE]
+  transaction:
+    allowed: [BUY, RENT]
+sources:
+  - HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.LISTINGS_INSIGHTS
+implementation:
+  function: HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.LISTINGS_INSIGHTS.MEDIAN_DAYS_ON_MARKET (precomputed)
+fixed_choices: {}
+outputs:
+  table: HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.LISTINGS_INSIGHTS
+  grain: [MONTH_DATE, PLACE_NAME, PLACE_LEVEL, TXN_TYPE, ESTATE_TYPE]
+  columns: [MEDIAN_DAYS_ON_MARKET]
+checks:
+  - {type: not_empty}
+  - {type: range, column: MEDIAN_DAYS_ON_MARKET, min: 0, max: 730}
+open_questions:
+  - Build code for LISTINGS_INSIGHTS (last built 2026-08-13) was not found; define start/end of a listing and deduplication rules.
+  - Joins by place name instead of place_id; ambiguous for duplicate names.

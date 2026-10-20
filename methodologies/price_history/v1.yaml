@@ -1,0 +1,34 @@
+id: price_history
+version: 1
+status: draft
+title: Historical price per m2 implied by the current price and the index
+owner: Housing Market Insights
+question_patterns:
+  - "what was the price per square metre in <place> in <year>"
+  - "price history for <place>"
+inputs:
+  geography:
+    levels: [AD02, AD04, AD05, AD06, AD08]
+    required: true
+  item:
+    allowed: [house, apartment, hybrid]
+    default: hybrid
+  transaction:
+    allowed: [TRANSACTION_TYPE.SELL, TRANSACTION_TYPE.RENT]
+    default: TRANSACTION_TYPE.SELL
+sources:
+  - SILVER_PROD.MKKN_PRICE.PRICE_DE
+  - HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.INDEX_SERIES
+implementation:
+  function: housing_germany.prices.core.implied_price_at
+fixed_choices:
+  formula: price_t = current_price / (1 + evolution(t -> latest))
+  current_price: latest PRICE_DE row per place/item with ACCURACY >= 3
+outputs:
+  table: HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.PRICE_HISTORY
+  grain: [PLACE_ID, TRANSACTION_TYPE, ITEM_TYPE, INDEX_DATE]
+checks:
+  - {type: not_empty}
+  - {type: range, column: PRICE_SQM, min: 100, max: 30000}
+open_questions:
+  - The code that built PRICE_HISTORY on 2026-08-03 was not found (no task); recover it from query history.

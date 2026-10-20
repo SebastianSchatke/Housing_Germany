@@ -1,0 +1,54 @@
+id: index_growth
+version: 1
+status: approved
+title: Cumulative price index growth over standard windows
+owner: Housing Market Insights
+question_patterns:
+  - "how did prices grow over the last N years"
+  - "price growth in <place> since <year>"
+  - "how much have house prices risen"
+  - "Preisentwicklung der letzten 5 Jahre"
+inputs:
+  geography:
+    levels: [AD02, AD04, AD05, AD06, AD08]
+    required: true
+  window:
+    allowed: ["1m", "3m", "6m", "YTD", "1y", "2y", "3y", "5y", "all"]
+    default: "5y"
+  item:
+    allowed: [house, apartment, hybrid]
+    default: hybrid
+  transaction:
+    allowed: [TRANSACTION_TYPE.SELL, TRANSACTION_TYPE.RENT]
+    default: TRANSACTION_TYPE.SELL
+sources:
+  - SILVER_PROD.MKKN_INDICE.INDICE_DE
+  - SILVER_PROD.GEOR_GEOREF.GEO_PLACE   # housing stock weights for hybrid
+implementation:
+  function: housing_germany.indices.functions.build_index_series
+  then: housing_germany.indices.functions.variation_windows
+fixed_choices:
+  metric: METRIC.SQM_PRICE
+  index_version: latest RECORD_TS per place and item
+  hybrid_build: house + apartment rebased to their common start date
+  hybrid_weights: housing stock (STATS.DE.MA.HOUSING.APARTMENT_COUNT / HOUSE_COUNT)
+  window_anchor: latest index date; past value = last observation at or before the anchor minus window
+  ytd_base: December of the previous year
+outputs:
+  table: HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.MARKET_SUMMARY
+  grain: [PLACE_ID, PLACE_TYPE, TRANSACTION_TYPE, ITEM_TYPE]
+  columns: [VAR_1M, VAR_3M, VAR_6M, VAR_YTD, VAR_1Y, VAR_2Y, VAR_3Y, VAR_5Y, VAR_ALL]
+checks:
+  - {type: not_empty}
+  - {type: range, column: VAR_1Y, min: -0.5, max: 1.0}
+  - {type: range, column: VAR_5Y, min: -0.6, max: 1.5}
+  - {type: completeness, column: VAR_1Y, min_share_non_null: 0.9}
+  - {type: max_delta_vs_previous_run, column: VAR_1Y, max_abs: 0.05}
+  - {type: golden, fixture: methodologies/index_growth/golden_v1.csv, tolerance: 1.0e-9}
+open_questions:
+  - >-
+    The current TASK_REFRESH_MARKET_SUMMARY computes windows in SQL on the
+    stored ITEM_TYPE.HYBRID series and with exact-date joins (no fallback to
+    the previous observation). This spec defines the package implementation as
+    canonical. The size of the difference has not been measured yet; measure it
+    before switching MARKET_SUMMARY to the new pipeline.

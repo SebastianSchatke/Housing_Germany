@@ -1,0 +1,56 @@
+id: purchasing_power
+version: 1
+status: approved
+title: Affordable living space (m2) for a median earner, single and family
+owner: Housing Market Insights
+question_patterns:
+  - "how many square metres can a family afford in <place>"
+  - "purchasing power in <place>"
+  - "affordability of housing"
+  - "Leistbarkeit"
+inputs:
+  geography:
+    levels: [AD02, AD04, AD06, AD08]
+    required: true
+  item:
+    allowed: [house, apartment, hybrid]
+    default: hybrid
+  household:
+    allowed: [single, family]
+    default: family
+  realtor_fee:
+    allowed: [with, without]
+    default: with
+sources:
+  - HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.INCOME_MAPPED     # median gross monthly wage, BA
+  - HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.INTEREST_RATES    # latest nominal rate, 10y fixed
+  - HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.TRANSFER_TAX      # Grunderwerbsteuer by state
+  - HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.MARKET_SUMMARY    # current price per m2
+implementation:
+  function: HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.PURCHASING_POWER (view)
+  history: HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.PURCHASING_POWER_HISTORY (view)
+fixed_choices:
+  income_basis: MEDIAN_2025, category Insgesamt
+  family_income: 1.5 x single gross (partner at 50%)
+  income_tax: German progressive tariff, Splittingtarif for family (brackets 10908 / 15999 / 62809)
+  social_contributions: 20.6% of gross
+  child_benefit: 3000 EUR per year added to family net income
+  housing_budget_share: 35% of net monthly income
+  mortgage_term_years: 30
+  loan_to_value: 0.9 (10% equity)
+  interest_rate: latest NOMINAL_RATE in INTEREST_RATES
+  transaction_costs: transfer tax by state, optional realtor fee
+outputs:
+  table: HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.PURCHASING_POWER
+  grain: [PLACE_ID, ITEM_TYPE]
+  columns: [PP_SQM_SINGLE_W_REALTOR, PP_SQM_FAMILY_W_REALTOR, PP_SQM_SINGLE_NO_REALTOR, PP_SQM_FAMILY_NO_REALTOR]
+checks:
+  - {type: not_empty}
+  - {type: range, column: PP_SQM_FAMILY_W_REALTOR, min: 5, max: 1000}
+  - {type: completeness, column: PP_SQM_FAMILY_W_REALTOR, min_share_non_null: 0.9}
+open_questions:
+  - >-
+    Logic lives in SQL views, not in housing_germany. The notebook version
+    (purchasing_power_DE from iwt_barometer) was never available, so parity
+    with the old barometer is unverified.
+  - Tax brackets are hard-coded; record the tax year they correspond to.
