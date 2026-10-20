@@ -1085,3 +1085,28 @@ try:
 except Exception as _exc:  # never let export break the dashboard
     export_slot.caption(f"Export unavailable: {_exc}")
 
+
+# ---------------------------------------------------------------------------
+# Methodology & data quality
+# ---------------------------------------------------------------------------
+_methodologies = data.get_methodology_status(session)
+if _methodologies is not None:
+    st.markdown("---")
+    st.subheader("Methodology & Data Quality")
+    st.caption(
+        "Every indicator on this page is defined by a versioned methodology in the "
+        "Housing_Germany repo (methodologies/). Tables are rebuilt monthly and only "
+        "published when all checks pass."
+    )
+    _view = _methodologies.rename(columns={
+        "METHODOLOGY_ID": "Methodology", "VERSION": "Version", "STATUS": "Status",
+        "TITLE": "Definition", "COMMIT_SHA": "Spec commit", "OPEN_QUESTIONS": "Open questions",
+        "REFRESHED_TABLE": "Table", "LAST_REFRESH_STATUS": "Last refresh",
+        "LAST_REFRESH": "Refreshed at", "DATA_SNAPSHOT": "Data up to",
+    })
+    st.dataframe(_view, hide_index=True, use_container_width=True)
+    _issues = data.get_open_issues(session)
+    if _issues is not None and not _issues.empty:
+        _errors = int((_issues["SEVERITY"] == "error").sum())
+        with st.expander(f"Open issues ({len(_issues)}, {_errors} errors)", expanded=_errors > 0):
+            st.dataframe(_issues, hide_index=True, use_container_width=True)

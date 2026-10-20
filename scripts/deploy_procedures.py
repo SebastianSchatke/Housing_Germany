@@ -47,7 +47,7 @@ def handler(session):
 $$""",
     "TASK_REFRESH_METHODOLOGIES": """
 CREATE OR REPLACE TASK {schema}.TASK_REFRESH_METHODOLOGIES
-  WAREHOUSE = WH_PROD_PERSONA
+  WAREHOUSE = WH_HOUSING_DEV  -- owner role has direct USAGE (tasks ignore secondary roles)
   SCHEDULE = 'USING CRON 0 12 2 * * Europe/Berlin'
   SUSPEND_TASK_AFTER_NUM_FAILURES = 2
   COMMENT = 'Monthly checked refresh of dashboard tables (replaces TASK_REFRESH_INDEX_SERIES / _MARKET_SUMMARY). Code commit {sha}.'

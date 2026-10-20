@@ -340,3 +340,46 @@ def get_listings_insights(_session, place_name, place_type, txn_type):
           AND ESTATE_TYPE IN ('APARTMENT', 'HOUSE')
         ORDER BY ESTATE_TYPE, MONTH_DATE
     """, params=[lookup_name, level, txn]).to_pandas()
+
+
+# --- Methodology & data quality loaders ---
+
+_AGENTS = "HOUSING_DEV.MARKET_INSIGHTS_AGENTS"
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_methodology_status(_session):
+    """Registered methodologies with their latest refresh run, or None if not accessible."""
+    try:
+        return _session.sql(f"""
+            WITH last_refresh AS (
+                SELECT METHODOLOGY_ID, STATUS AS LAST_REFRESH_STATUS, FINISHED_AT AS LAST_REFRESH,
+                       DATA_SNAPSHOT, RESULT:table::STRING AS REFRESHED_TABLE
+                FROM {_AGENTS}.RUN_LOG
+                WHERE REQUEST_HASH LIKE 'refresh:%'
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY METHODOLOGY_ID, RESULT:table ORDER BY FINISHED_AT DESC) = 1
+            )
+            SELECT r.METHODOLOGY_ID, r.VERSION, r.STATUS, r.TITLE, LEFT(r.COMMIT_SHA, 7) AS COMMIT_SHA,
+                   ARRAY_SIZE(r.SPEC:open_questions) AS OPEN_QUESTIONS,
+                   l.REFRESHED_TABLE, l.LAST_REFRESH_STATUS, l.LAST_REFRESH, l.DATA_SNAPSHOT
+            FROM {_AGENTS}.METHODOLOGY_REGISTRY r
+            LEFT JOIN last_refresh l ON l.METHODOLOGY_ID = r.METHODOLOGY_ID
+            ORDER BY r.STATUS, r.METHODOLOGY_ID, r.VERSION
+        """).to_pandas()
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_open_issues(_session, limit=20):
+    """Open data quality issues, newest first, or None if not accessible."""
+    try:
+        return _session.sql(f"""
+            SELECT CREATED_AT, SEVERITY, KIND, METHODOLOGY_ID, MESSAGE
+            FROM {_AGENTS}.ISSUES
+            WHERE STATUS = 'open'
+            ORDER BY CREATED_AT DESC
+            LIMIT {int(limit)}
+        """).to_pandas()
+    except Exception:
+        return None
