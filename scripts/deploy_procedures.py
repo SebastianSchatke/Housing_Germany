@@ -20,8 +20,46 @@ from snowflake.snowpark import Session
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 SCHEMA = "HOUSING_DEV.MARKET_INSIGHTS_AGENTS"
+PUBLISHED = "HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS"
 STAGE = f"{SCHEMA}.CODE"
 PACKAGES = "'snowflake-snowpark-python', 'pandas', 'numpy'"
+AGENTS_OWNER_ROLE = "SNF_R_HOUSING_DATA_ANALYST"
+REFRESH_ROLE = "R_HOUSING_RW_DATA_ACCESS_DEV"
+
+REFRESH_GRANTS = [
+    "GRANT USAGE ON SCHEMA {schema} TO ROLE {role}",
+    "GRANT READ ON STAGE {stage} TO ROLE {role}",
+    "GRANT SELECT ON TABLE {schema}.METHODOLOGY_REGISTRY TO ROLE {role}",
+    "GRANT SELECT ON VIEW {schema}.APPROVED_METHODOLOGIES TO ROLE {role}",
+    "GRANT SELECT, INSERT ON TABLE {schema}.RUN_LOG TO ROLE {role}",
+    "GRANT SELECT, INSERT ON TABLE {schema}.ISSUES TO ROLE {role}",
+]
+
+REFRESH_OBJECTS = {
+    "REFRESH_PUBLISHED_TABLES": """
+CREATE OR REPLACE PROCEDURE {published}.REFRESH_PUBLISHED_TABLES()
+RETURNS VARIANT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ({packages})
+IMPORTS = ('{zip}')
+HANDLER = 'handler'
+COMMENT = 'Rebuild INDEX_SERIES and MARKET_SUMMARY as _NEXT, check, swap; then drift probe vs index_growth v1. Code commit {sha}.'
+EXECUTE AS OWNER
+AS $$
+from housing_germany.methodology.refresh import refresh_all
+
+def handler(session):
+    return refresh_all(session)
+$$""",
+    "TASK_REFRESH_METHODOLOGIES": """
+CREATE OR REPLACE TASK {published}.TASK_REFRESH_METHODOLOGIES
+  WAREHOUSE = WH_PROD_PERSONA
+  SCHEDULE = 'USING CRON 0 12 2 * * Europe/Berlin'
+  SUSPEND_TASK_AFTER_NUM_FAILURES = 2
+  COMMENT = 'Monthly checked refresh of dashboard tables (replaces TASK_REFRESH_INDEX_SERIES / _MARKET_SUMMARY). Code commit {sha}.'
+AS CALL {published}.REFRESH_PUBLISHED_TABLES()""",
+}
 
 
 def git(*args: str) -> str:
@@ -31,8 +69,9 @@ def git(*args: str) -> str:
 def build_zip(dest: pathlib.Path) -> None:
     src = REPO / "src"
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
-        for path in sorted((src / "housing_germany").rglob("*.py")):
-            zf.write(path, path.relative_to(src))
+        for path in sorted((src / "housing_germany").rglob("*")):
+            if path.suffix in (".py", ".sql"):
+                zf.write(path, path.relative_to(src))
 
 
 PROCEDURES = {
@@ -91,6 +130,7 @@ def main() -> None:
     sha = git("rev-parse", "--short", "HEAD")
 
     session = Session.builder.config("connection_name", args.connection).create()
+    session.sql(f"USE ROLE {AGENTS_OWNER_ROLE}").collect()
     session.sql(f"CREATE STAGE IF NOT EXISTS {STAGE} COMMENT = 'Versioned housing_germany code zips'").collect()
     with tempfile.TemporaryDirectory() as tmp:
         zpath = pathlib.Path(tmp) / f"housing_germany_{sha}.zip"
@@ -100,6 +140,14 @@ def main() -> None:
     for name, ddl in PROCEDURES.items():
         session.sql(ddl.format(schema=SCHEMA, packages=PACKAGES, zip=zip_ref, sha=sha)).collect()
         print(f"deployed {SCHEMA}.{name} -> {zip_ref}")
+
+    # The refresh pipeline runs as the role that owns the published dashboard tables.
+    for grant in REFRESH_GRANTS:
+        session.sql(grant.format(schema=SCHEMA, stage=STAGE, role=REFRESH_ROLE)).collect()
+    session.sql(f"USE ROLE {REFRESH_ROLE}").collect()
+    for name, ddl in REFRESH_OBJECTS.items():
+        session.sql(ddl.format(published=PUBLISHED, packages=PACKAGES, zip=zip_ref, sha=sha)).collect()
+        print(f"deployed {PUBLISHED}.{name} (role {REFRESH_ROLE})")
     session.close()
 
 

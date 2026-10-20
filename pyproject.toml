@@ -27,3 +27,6 @@ dev = ["pytest"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+housing_germany = ["methodology/sql/*.sql"]

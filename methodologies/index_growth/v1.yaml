@@ -44,11 +44,15 @@ checks:
   - {type: range, column: VAR_5Y, min: -0.6, max: 1.5}
   - {type: completeness, column: VAR_1Y, min_share_non_null: 0.9}
   - {type: max_delta_vs_previous_run, column: VAR_1Y, max_abs: 0.05}
-  - {type: golden, fixture: methodologies/index_growth/golden_v1.csv, tolerance: 1.0e-9}
+  - {type: golden, test: apps/housing_dashboard/validate_harmonization.py}   # fixed-input maths parity, run in CI
 open_questions:
   - >-
     The current TASK_REFRESH_MARKET_SUMMARY computes windows in SQL on the
     stored ITEM_TYPE.HYBRID series and with exact-date joins (no fallback to
     the previous observation). This spec defines the package implementation as
     canonical. The size of the difference has not been measured yet; measure it
-    before switching MARKET_SUMMARY to the new pipeline.
+    before switching MARKET_SUMMARY to the new pipeline. The refresh pipeline
+    records this on every run (drift_probe -> ISSUES kind 'drift').
+  - >-
+    YTD base differs: MARKET_SUMMARY uses January of the current year
+    (DATE_TRUNC('year')), the package uses December of the previous year.
