@@ -1,0 +1,15 @@
+definition_version: 2
+entities:
+  streamlit_app:
+    type: streamlit
+    main_file: streamlit_app.py
+    title: "Immowelt_Market_Insights"
+    query_warehouse: "SNOWFLAKE_LEARNING_WH"
+    compute_pool: "SYSTEM_COMPUTE_POOL_CPU"
+    artifacts:
+      - pyproject.toml
+      - streamlit_app.py
+      - market_insights.py
+      - data.py
+      - report.py
+      - .streamlit/config.toml
