@@ -1,0 +1,189 @@
+name: SV_HOUSING_MARKET
+description: 'Exploratory view of the German housing market dashboard tables: current prices per m2 and index variations by place (MARKET_SUMMARY with GEO_PLACES names and hierarchy), listing supply and days on market (LISTINGS_INSIGHTS), and portal demand (DEMAND_MONTHLY). Official growth and affordability figures must come from RUN_METHODOLOGY, not from this view.'
+tables:
+  - name: MARKET_SUMMARY
+    base_table:
+      database: HOUSING_DEV
+      schema: MARKET_INSIGHTS_STREAMLIT_APPS
+      table: MARKET_SUMMARY
+    dimensions:
+      - name: PLACE_ID
+        expr: PLACE_ID
+        data_type: VARCHAR
+      - name: PLACE_TYPE
+        expr: PLACE_TYPE
+        data_type: VARCHAR
+        description: 'Administrative level: AD02 = Germany, AD04 = federal state (Bundesland), AD05 = Regierungsbezirk, AD06 = district (Kreis), AD08 = municipality/city (Gemeinde).'
+        sample_values:
+          - AD02
+          - AD04
+          - AD05
+          - AD06
+          - AD08
+      - name: TRANSACTION_TYPE
+        expr: TRANSACTION_TYPE
+        data_type: VARCHAR
+        description: TRANSACTION_TYPE.SELL = purchase prices, TRANSACTION_TYPE.RENT = rents.
+        sample_values:
+          - TRANSACTION_TYPE.SELL
+          - TRANSACTION_TYPE.RENT
+      - name: ITEM_TYPE
+        expr: ITEM_TYPE
+        data_type: VARCHAR
+        description: Property type. ITEM_TYPE.HYBRID combines house and apartment and is the default when the user does not specify a property type.
+        sample_values:
+          - ITEM_TYPE.HYBRID
+          - ITEM_TYPE.HOUSE
+          - ITEM_TYPE.APARTMENT
+      - name: PRICE_ACCURACY
+        expr: PRICE_ACCURACY
+        data_type: NUMBER
+    time_dimensions:
+      - name: LATEST_DATE
+        expr: LATEST_DATE
+        data_type: DATE
+        description: Month of the latest index observation.
+    facts:
+      - name: PRICE_SQM
+        expr: PRICE_SQM
+        data_type: FLOAT
+        description: Current price per square metre in EUR (purchase price for SELL, monthly rent for RENT).
+      - name: VAR_1Y
+        expr: VAR_1Y
+        data_type: FLOAT
+        description: Index change over 1 year as a fraction (0.05 = +5%).
+      - name: VAR_3Y
+        expr: VAR_3Y
+        data_type: FLOAT
+        description: Index change over 3 years as a fraction (0.05 = +5%).
+      - name: VAR_5Y
+        expr: VAR_5Y
+        data_type: FLOAT
+        description: Index change over 5 years as a fraction (0.05 = +5%).
+    description: 'One row per place, transaction type and property type: latest index date, current price per m2 and cumulative index change over standard windows. Hybrid = house and apartment combined, weighted by housing stock.'
+  - name: GEO_PLACES
+    base_table:
+      database: HOUSING_DEV
+      schema: MARKET_INSIGHTS_STREAMLIT_APPS
+      table: GEO_PLACES
+    primary_key:
+      columns:
+        - PLACE_ID
+    dimensions:
+      - name: PLACE_ID
+        expr: PLACE_ID
+        data_type: VARCHAR
+      - name: PLACE_TYPE
+        expr: PLACE_TYPE
+        data_type: VARCHAR
+      - name: NAME
+        expr: NAME
+        data_type: VARCHAR
+        description: Place name, e.g. Berlin, Bayern, München.
+      - name: POPULATION
+        expr: POPULATION
+        data_type: NUMBER
+      - name: PARENT_AD04
+        expr: PARENT_AD04
+        data_type: VARCHAR
+      - name: PARENT_AD06
+        expr: PARENT_AD06
+        data_type: VARCHAR
+    description: German administrative places with names, population and parent state (PARENT_AD04) / district (PARENT_AD06).
+  - name: LISTINGS_INSIGHTS
+    base_table:
+      database: HOUSING_DEV
+      schema: MARKET_INSIGHTS_STREAMLIT_APPS
+      table: LISTINGS_INSIGHTS
+    dimensions:
+      - name: PLACE_NAME
+        expr: PLACE_NAME
+        data_type: VARCHAR
+      - name: PLACE_LEVEL
+        expr: PLACE_LEVEL
+        data_type: VARCHAR
+        description: NATIONAL (use PLACE_NAME = 'Deutschland'), REGION = federal state, PROVINCE = district.
+        sample_values:
+          - NATIONAL
+          - REGION
+          - PROVINCE
+      - name: TXN_TYPE
+        expr: TXN_TYPE
+        data_type: VARCHAR
+        description: BUY or RENT.
+      - name: ESTATE_TYPE
+        expr: ESTATE_TYPE
+        data_type: VARCHAR
+    time_dimensions:
+      - name: MONTH_DATE
+        expr: MONTH_DATE
+        data_type: TIMESTAMP_NTZ
+    facts:
+      - name: NEW_LISTINGS
+        expr: NEW_LISTINGS
+        data_type: NUMBER
+      - name: ACTIVE_LISTINGS
+        expr: ACTIVE_LISTINGS
+        data_type: NUMBER
+      - name: MEDIAN_DAYS_ON_MARKET
+        expr: MEDIAN_DAYS_ON_MARKET
+        data_type: NUMBER
+        description: Median number of days listings were online in the month (time on market). Methodology time_on_market is still draft.
+      - name: AVG_SIZE_SQM
+        expr: AVG_SIZE_SQM
+        data_type: FLOAT
+      - name: AVG_ROOMS
+        expr: AVG_ROOMS
+        data_type: FLOAT
+    description: Monthly listing statistics from the portal. Keyed by place NAME and PLACE_LEVEL, not by place id.
+  - name: DEMAND_MONTHLY
+    base_table:
+      database: HOUSING_DEV
+      schema: MARKET_INSIGHTS_STREAMLIT_APPS
+      table: DEMAND_MONTHLY
+    dimensions:
+      - name: PLACE_NAME
+        expr: PLACE_NAME
+        data_type: VARCHAR
+      - name: PLACE_LEVEL
+        expr: PLACE_LEVEL
+        data_type: VARCHAR
+      - name: CLICKS_BUY
+        expr: CLICKS_BUY
+        data_type: NUMBER
+      - name: CLICKS_RENT
+        expr: CLICKS_RENT
+        data_type: NUMBER
+      - name: LEADS_BUY
+        expr: LEADS_BUY
+        data_type: NUMBER
+      - name: LEADS_RENT
+        expr: LEADS_RENT
+        data_type: NUMBER
+    time_dimensions:
+      - name: MONTH_DATE
+        expr: MONTH_DATE
+        data_type: DATE
+    description: 'Monthly portal demand: listing clicks and leads for buy and rent. Keyed by place NAME and PLACE_LEVEL.'
+relationships:
+  - name: MARKET_SUMMARY_TO_GEO_PLACES
+    left_table: MARKET_SUMMARY
+    right_table: GEO_PLACES
+    join_type: inner
+    relationship_type: many_to_one
+    relationship_columns:
+      - left_column: PLACE_ID
+        right_column: PLACE_ID
+verified_queries:
+  - name: 0;1
+    question: Which German states have the most expensive apartments per square meter?
+    sql: SELECT g.NAME, m.PRICE_SQM FROM market_summary AS m JOIN geo_places AS g ON g.PLACE_ID = m.PLACE_ID WHERE m.PLACE_TYPE = 'AD04' AND m.TRANSACTION_TYPE = 'TRANSACTION_TYPE.SELL' AND m.ITEM_TYPE = 'ITEM_TYPE.APARTMENT' ORDER BY m.PRICE_SQM DESC
+    verified_at: 1792494950
+    verified_by: Semantic Model Generator
+  - name: 1;1
+    question: How has the time on market for properties for sale developed in Germany?
+    sql: SELECT MONTH_DATE, ESTATE_TYPE, MEDIAN_DAYS_ON_MARKET FROM listings_insights WHERE PLACE_LEVEL = 'NATIONAL' AND TXN_TYPE = 'BUY' ORDER BY MONTH_DATE
+    verified_at: 1792494950
+    verified_by: Semantic Model Generator
+module_custom_instructions:
+  sql_generation: Default to TRANSACTION_TYPE.SELL and ITEM_TYPE.HYBRID when not specified. VAR_* columns are fractions; multiply by 100 for percent. Join MARKET_SUMMARY to GEO_PLACES on PLACE_ID to filter or display place names. LISTINGS_INSIGHTS and DEMAND_MONTHLY have no place id; filter them by PLACE_NAME and PLACE_LEVEL.

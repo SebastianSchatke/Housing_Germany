@@ -124,7 +124,9 @@ def build_index_series(indices_df: pd.DataFrame, item: str, place_ids,
             if sw:
                 pid = row["PLACE_ID"]
                 item_key = row["item"]
-                vol = sw.get(pid, {}).get(item_key, row["last_volume"])
+                # A stock count of 0 is as unusable as a missing one: fall back to volume.
+                stock = sw.get(pid, {}).get(item_key)
+                vol = stock if stock is not None and stock > 0 else row["last_volume"]
             else:
                 vol = row["last_volume"]
         else:

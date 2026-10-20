@@ -22,10 +22,13 @@ session = Session.builder.config(
 session.sql("USE WAREHOUSE WH_PROD_PERSONA").collect()
 
 worst, compared, failures = 0.0, 0, []
-for level, limit in (("AD02", None), ("AD04", None), ("AD06", 40)):
+# AD08DE4101 has housing stock counts of 0 (must fall back to volumes, not collapse to 0).
+CASES = (("AD02", None, None), ("AD04", None, None), ("AD06", 40, None),
+         ("AD08", None, ["AD08DE4101", "AD08DE8634", "AD08DE1"]))
+for level, limit, only in CASES:
     weights = load_housing_weights(session, level)
     for txn in ("TRANSACTION_TYPE.SELL", "TRANSACTION_TYPE.RENT"):
-        idx = load_indices(session, level, txn)
+        idx = load_indices(session, level, txn, place_ids=only)
         idx = idx[idx["item"].isin(["house", "apartment"])]
         places = sorted(idx["PLACE_ID"].unique())[:limit]
         idx = idx[idx["PLACE_ID"].isin(places)]
@@ -44,6 +47,8 @@ for level, limit in (("AD02", None), ("AD04", None), ("AD06", 40)):
             if not ref.index.equals(got.index):
                 failures.append((level, txn, pid, "dates differ"))
                 continue
+            if (got <= 0).any():
+                failures.append((level, txn, pid, "non-positive index"))
             diff = float((ref - got).abs().max())
             worst, compared = max(worst, diff), compared + 1
             if diff > TOL:

@@ -141,7 +141,7 @@ def _log(session, run_id, methodology, status, checks, result, attempt, started,
             (RUN_ID, REQUEST_HASH, METHODOLOGY_ID, VERSION, COMMIT_SHA, PARAMS, DATA_SNAPSHOT, STATUS,
              CHECK_RESULTS, RESULT, ATTEMPT, STARTED_AT, FINISHED_AT, RUNTIME_SECONDS, QUERY_TAG)
             SELECT ?, ?, ?, ?, ?, PARSE_JSON(?), ?, ?, PARSE_JSON(?), PARSE_JSON(?), ?,
-                   CONVERT_TIMEZONE('UTC', TO_TIMESTAMP_NTZ(?::NUMBER(38, 3))), CURRENT_TIMESTAMP(), ?, ?""",
+                   CONVERT_TIMEZONE('UTC', TO_TIMESTAMP_NTZ(?::NUMBER(38, 3)))::TIMESTAMP_LTZ, CURRENT_TIMESTAMP(), ?, ?""",
         params=[run_id, f"refresh:{run_id}", methodology, int(version), sha,
                 json.dumps({"refresh": result.get("table")}), snapshot, status,
                 json.dumps(checks, default=str), json.dumps(result, default=str), attempt,
