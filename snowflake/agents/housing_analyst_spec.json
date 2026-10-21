@@ -1,44 +1,159 @@
 {
-  "models": {"orchestration": "auto"},
-  "orchestration": {"budget": {"seconds": 600, "tokens": 300000}},
+  "models": {
+    "orchestration": "auto"
+  },
+  "orchestration": {
+    "budget": {
+      "seconds": 600,
+      "tokens": 300000
+    }
+  },
   "instructions": {
-    "orchestration": "You are the Housing Analyst for the German housing market. Your job is to route each request to approved, versioned methodologies so every user gets the same numbers for the same question.\n\nRules:\n1. Official numbers (price growth, index changes, affordability / purchasing power) MUST come from run_methodology. Never calculate, estimate or adjust these numbers yourself, and never derive them from explore_data.\n2. Call list_methodologies first if you are not sure which methodology fits or which parameters it accepts. Use only parameter values listed in the methodology inputs.\n3. Resolve place names to place ids before calling run_methodology: use explore_data on GEO_PLACES (e.g. 'Bayern' -> AD04DE9, Germany -> AD02DE1). Germany as a whole is AD02DE1.\n4. Map windows: 'last 5 years' -> 5y, 'last year' -> 1y, 'since January' -> YTD. If the user asks for a window that is not allowed (e.g. 7 years), say which windows are supported instead of approximating.\n5. If run_methodology returns status 'rejected', explain the reason and ask the user for the missing or valid input. If it returns 'flagged', report that the result failed quality checks and was logged for review; do not show a number.\n6. If no approved methodology covers the request (e.g. rental yield, time on market while its methodology is draft, any new indicator), call report_gap with the request, what is missing and which tables look relevant. Then tell the user it was logged and what would be needed. Do not improvise a calculation.\n7. explore_data is for exploratory, descriptive questions (rankings of current prices, listing counts, demand). Label those answers as exploratory and not an official methodology result.",
+    "orchestration": "You are the Housing Analyst for the German housing market. Your job is to route each request to approved, versioned methodologies so every user gets the same numbers for the same question.\n\nRules:\n1. Official numbers (price growth, index changes, affordability / purchasing power) MUST come from run_methodology. Never calculate, estimate or adjust these numbers yourself, and never derive them from explore_data.\n2. Call list_methodologies first if you are not sure which methodology fits or which parameters it accepts. Use only parameter values listed in the methodology inputs.\n3. Resolve place names to place ids before calling run_methodology: use explore_data on GEO_PLACES (e.g. 'Bayern' -> AD04DE9, Germany -> AD02DE1). Germany as a whole is AD02DE1.\n4. Map periods: 'last 5 years' -> period 5y, 'last year' -> 1y, 'since January' -> YTD. If the user asks for a window that is not allowed (e.g. 7 years), say which windows are supported instead of approximating.\n5. If run_methodology returns status 'rejected', explain the reason and ask the user for the missing or valid input. If it returns 'flagged', report that the result failed quality checks and was logged for review; do not show a number.\n6. If no approved methodology covers the request (e.g. rental yield, time on market while its methodology is draft, any new indicator), call report_gap with the request, what is missing and which tables look relevant. Then tell the user it was logged and what would be needed. Do not improvise a calculation.\n7. explore_data is for exploratory, descriptive questions (rankings of current prices, listing counts, demand). Label those answers as exploratory and not an official methodology result.",
     "response": "Answer in the user's language (German or English). Lead with the number and its definition. For methodology results always state: methodology id and version, parameters used (place, window, property type, transaction), data as of date, and the run_id. Show growth as percent with one decimal (fraction 0.0219 -> +2.2%). Keep it short; no speculation about causes unless asked.",
     "sample_questions": [
-      {"question": "How did the German housing market grow over the last 5 years?"},
-      {"question": "Wie haben sich die Wohnungspreise in Bayern in den letzten 3 Jahren entwickelt?"},
-      {"question": "How many square metres can a family afford in Berlin?"},
-      {"question": "What is the time on market for houses in Hamburg?"}
+      {
+        "question": "How did the German housing market grow over the last 5 years?"
+      },
+      {
+        "question": "Wie haben sich die Wohnungspreise in Bayern in den letzten 3 Jahren entwickelt?"
+      },
+      {
+        "question": "How many square metres can a family afford in Berlin?"
+      },
+      {
+        "question": "What is the time on market for houses in Hamburg?"
+      }
     ]
   },
   "tools": [
-    {"tool_spec": {"type": "generic", "name": "run_methodology",
-      "description": "Run an approved housing methodology and return the official, reproducible result (cached if the same request was already run on the same data). Methodologies: index_growth (cumulative price index change; params geography, window in [1m,3m,6m,YTD,1y,2y,3y,5y,all], item in [house,apartment,hybrid], transaction in [TRANSACTION_TYPE.SELL, TRANSACTION_TYPE.RENT]); purchasing_power (affordable m2 for a median earner; params geography, item, household in [single,family], realtor_fee in [with,without]). geography is a place id like AD02DE1 or a list of ids of the same level. Returns status (passed, rerun_passed, cached, flagged, rejected), result, checks, run_id, data_snapshot, commit_sha.",
-      "input_schema": {"type": "object", "properties": {
-        "methodology_id": {"type": "string", "description": "index_growth or purchasing_power"},
-        "params": {"type": "object", "description": "Parameters as defined in the methodology inputs, e.g. {\"geography\": \"AD02DE1\", \"window\": \"5y\", \"item\": \"hybrid\"}"}
-      }, "required": ["methodology_id", "params"]}}},
-    {"tool_spec": {"type": "generic", "name": "list_methodologies",
-      "description": "List registered methodologies with status (approved/draft), example questions, allowed inputs, fixed calculation choices and open questions. Use to decide whether a request is covered.",
-      "input_schema": {"type": "object", "properties": {}, "required": []}}},
-    {"tool_spec": {"type": "generic", "name": "report_gap",
-      "description": "Log a request that no approved methodology covers so the team can define one. Never computes anything. Use for new indicators or draft methodologies.",
-      "input_schema": {"type": "object", "properties": {
-        "request": {"type": "string", "description": "The user's request in their words"},
-        "missing": {"type": "string", "description": "What is missing: no methodology, draft methodology, missing data, unsupported parameter"},
-        "candidate_sources": {"type": "array", "items": {"type": "string"}, "description": "Fully qualified tables that look relevant"}
-      }, "required": ["request", "missing"]}}},
-    {"tool_spec": {"type": "cortex_analyst_text_to_sql", "name": "explore_data",
-      "description": "Exploratory text-to-SQL over the dashboard tables: current prices per m2 and index variations by place (MARKET_SUMMARY), place names and hierarchy (GEO_PLACES), listing supply and days on market (LISTINGS_INSIGHTS), portal demand (DEMAND_MONTHLY). Use for place id lookups and descriptive questions; results are not official methodology outputs."}}
+    {
+      "tool_spec": {
+        "type": "generic",
+        "name": "run_methodology",
+        "description": "Run an approved housing methodology and return the official, reproducible result (served from the run log if the same request already ran on the same data). Methodologies: index_growth = cumulative price index change (uses geography, period, item, transaction_type); purchasing_power = affordable m2 for a median earner (uses geography, item, household, realtor_fee). Returns status (passed, rerun_passed, cached, flagged, rejected), result, checks, run_id, data_snapshot, commit_sha.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "methodology_id": {
+              "type": "string",
+              "description": "index_growth or purchasing_power"
+            },
+            "geography": {
+              "type": "string",
+              "description": "Place id, e.g. AD02DE1 (Germany) or AD04DE9 (Bayern). Several ids of the same level separated by commas."
+            },
+            "period": {
+              "type": "string",
+              "description": "index_growth only. One of 1m, 3m, 6m, YTD, 1y, 2y, 3y, 5y, all. Default 5y."
+            },
+            "item": {
+              "type": "string",
+              "description": "house, apartment or hybrid (default hybrid = both combined)."
+            },
+            "transaction_type": {
+              "type": "string",
+              "description": "index_growth only. TRANSACTION_TYPE.SELL (default, purchase prices) or TRANSACTION_TYPE.RENT."
+            },
+            "household": {
+              "type": "string",
+              "description": "purchasing_power only. single or family (default family)."
+            },
+            "realtor_fee": {
+              "type": "string",
+              "description": "purchasing_power only. with (default) or without."
+            }
+          },
+          "required": [
+            "methodology_id",
+            "geography"
+          ]
+        }
+      }
+    },
+    {
+      "tool_spec": {
+        "type": "generic",
+        "name": "list_methodologies",
+        "description": "List registered methodologies with status (approved/draft), example questions, allowed inputs, fixed calculation choices and open questions. Use to decide whether a request is covered.",
+        "input_schema": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "tool_spec": {
+        "type": "generic",
+        "name": "report_gap",
+        "description": "Log a request that no approved methodology covers so the team can define one. Never computes anything. Use for new indicators or draft methodologies.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "request": {
+              "type": "string",
+              "description": "The user's request in their words"
+            },
+            "missing": {
+              "type": "string",
+              "description": "What is missing: no methodology, draft methodology, missing data, unsupported parameter"
+            },
+            "candidate_sources": {
+              "type": "string",
+              "description": "Relevant fully qualified tables, comma separated"
+            }
+          },
+          "required": [
+            "request",
+            "missing"
+          ]
+        }
+      }
+    },
+    {
+      "tool_spec": {
+        "type": "cortex_analyst_text_to_sql",
+        "name": "explore_data",
+        "description": "Exploratory text-to-SQL over the dashboard tables: current prices per m2 and index variations by place (MARKET_SUMMARY), place names and hierarchy (GEO_PLACES), listing supply and days on market (LISTINGS_INSIGHTS), portal demand (DEMAND_MONTHLY). Use for place id lookups and descriptive questions; results are not official methodology outputs."
+      }
+    }
   ],
   "tool_resources": {
-    "run_methodology": {"type": "procedure", "identifier": "HOUSING_DEV.MARKET_INSIGHTS_AGENTS.RUN_METHODOLOGY",
-      "execution_environment": {"type": "warehouse", "warehouse": "WH_HOUSING_DEV", "query_timeout": 300}},
-    "list_methodologies": {"type": "procedure", "identifier": "HOUSING_DEV.MARKET_INSIGHTS_AGENTS.LIST_METHODOLOGIES",
-      "execution_environment": {"type": "warehouse", "warehouse": "WH_HOUSING_DEV", "query_timeout": 60}},
-    "report_gap": {"type": "procedure", "identifier": "HOUSING_DEV.MARKET_INSIGHTS_AGENTS.REPORT_GAP",
-      "execution_environment": {"type": "warehouse", "warehouse": "WH_HOUSING_DEV", "query_timeout": 60}},
-    "explore_data": {"semantic_view": "HOUSING_DEV.MARKET_INSIGHTS_AGENTS.SV_HOUSING_MARKET",
-      "execution_environment": {"type": "warehouse", "warehouse": "WH_HOUSING_DEV", "query_timeout": 120}}
+    "run_methodology": {
+      "type": "procedure",
+      "identifier": "HOUSING_DEV.MARKET_INSIGHTS_AGENTS.AGENT_RUN_METHODOLOGY",
+      "execution_environment": {
+        "type": "warehouse",
+        "warehouse": "WH_HOUSING_DEV",
+        "query_timeout": 300
+      }
+    },
+    "list_methodologies": {
+      "type": "procedure",
+      "identifier": "HOUSING_DEV.MARKET_INSIGHTS_AGENTS.LIST_METHODOLOGIES",
+      "execution_environment": {
+        "type": "warehouse",
+        "warehouse": "WH_HOUSING_DEV",
+        "query_timeout": 60
+      }
+    },
+    "report_gap": {
+      "type": "procedure",
+      "identifier": "HOUSING_DEV.MARKET_INSIGHTS_AGENTS.AGENT_REPORT_GAP",
+      "execution_environment": {
+        "type": "warehouse",
+        "warehouse": "WH_HOUSING_DEV",
+        "query_timeout": 60
+      }
+    },
+    "explore_data": {
+      "semantic_view": "HOUSING_DEV.MARKET_INSIGHTS_AGENTS.SV_HOUSING_MARKET",
+      "execution_environment": {
+        "type": "warehouse",
+        "warehouse": "WH_HOUSING_DEV",
+        "query_timeout": 120
+      }
+    }
   }
 }

@@ -90,6 +90,54 @@ def handler(session, methodology_id, params, version):
     except RequestError as e:
         return {{"status": "rejected", "methodology": methodology_id, "error": str(e)}}
 $$""",
+    # Agent-facing wrappers: Cortex Agent generic tools on a warehouse only accept
+    # scalar arguments (no OBJECT/ARRAY), so params are passed as flat strings.
+    "AGENT_RUN_METHODOLOGY": """
+CREATE OR REPLACE PROCEDURE {schema}.AGENT_RUN_METHODOLOGY(
+    METHODOLOGY_ID VARCHAR, GEOGRAPHY VARCHAR,
+    PERIOD VARCHAR DEFAULT NULL, ITEM VARCHAR DEFAULT NULL, TRANSACTION_TYPE VARCHAR DEFAULT NULL,
+    HOUSEHOLD VARCHAR DEFAULT NULL, REALTOR_FEE VARCHAR DEFAULT NULL)
+RETURNS VARIANT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ({packages})
+IMPORTS = ('{zip}')
+HANDLER = 'handler'
+COMMENT = 'Flat-argument wrapper of RUN_METHODOLOGY for the HOUSING_ANALYST agent. Code commit {sha}.'
+EXECUTE AS CALLER
+AS $$
+from housing_germany.methodology import run, RequestError
+
+def handler(session, methodology_id, geography, period, item, transaction_type, household, realtor_fee):
+    ids = [g.strip() for g in (geography or "").split(",") if g.strip()]
+    params = {{"geography": ids[0] if len(ids) == 1 else ids}}
+    for key, value in (("window", period), ("item", item), ("transaction", transaction_type),
+                       ("household", household), ("realtor_fee", realtor_fee)):
+        if value not in (None, ""):
+            params[key] = value
+    try:
+        return run(session, methodology_id, params)
+    except RequestError as e:
+        return {{"status": "rejected", "methodology": methodology_id, "params": params, "error": str(e)}}
+$$""",
+    "AGENT_REPORT_GAP": """
+CREATE OR REPLACE PROCEDURE {schema}.AGENT_REPORT_GAP(
+    REQUEST VARCHAR, MISSING VARCHAR, CANDIDATE_SOURCES VARCHAR DEFAULT NULL)
+RETURNS VARIANT
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ({packages})
+IMPORTS = ('{zip}')
+HANDLER = 'handler'
+COMMENT = 'Flat-argument wrapper of REPORT_GAP for the HOUSING_ANALYST agent. Code commit {sha}.'
+EXECUTE AS CALLER
+AS $$
+from housing_germany.methodology import report_gap
+
+def handler(session, request, missing, candidate_sources):
+    sources = [s.strip() for s in (candidate_sources or "").split(",") if s.strip()]
+    return report_gap(session, request, missing, sources)
+$$""",
     "REPORT_GAP": """
 CREATE OR REPLACE PROCEDURE {schema}.REPORT_GAP(
     REQUEST VARCHAR, MISSING VARCHAR, CANDIDATE_SOURCES ARRAY DEFAULT NULL, DRAFT_SPEC VARIANT DEFAULT NULL)
