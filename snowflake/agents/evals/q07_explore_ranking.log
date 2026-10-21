@@ -1,0 +1,21 @@
+Sending request to agent HOUSING_DEV.MARKET_INSIGHTS_AGENTS.HOUSING_ANALYST
+Question: 'Which federal states have the most expensive apartments right now?'
+Streaming response...
+
+
+============================================================
+✓ Request completed successfully!
+Saving response to: /Users/sschatke/Housing_Germany/snowflake/agents/evals/q07_explore_ranking.json
+✓ Response saved to /Users/sschatke/Housing_Germany/snowflake/agents/evals/q07_explore_ranking.json
+============================================================
+
+Agent Response:
+Hamburg has the most expensive apartments to buy, at about **€6,010 per m²**. Berlin (€5,007/m²) and Bayern (€4,419/m²) come next. These are current average purchase prices per square metre, as of September 2026.
+
+- **Next tier:** Baden-Württemberg (€3,584), Hessen (€3,531) and Schleswig-Holstein (€3,475).
+- **Cheapest:** Sachsen-Anhalt (€1,729), Sachsen (€1,813) and Thüringen (€1,814). Apartments in Hamburg cost about 3.5 times as much per m² as in Sachsen-Anhalt.
+
+This ranking is exploratory: it's based on the dashboard's current price data, not an official methodology result. If you need official figures on how prices have grown, I can run the approved index-growth methodology for specific states.
+
+
+

@@ -1,0 +1,22 @@
+Sending request to agent HOUSING_DEV.MARKET_INSIGHTS_AGENTS.HOUSING_ANALYST
+Question: 'How much did house prices in Germany rise over the last 7 years?'
+Streaming response...
+
+
+============================================================
+✓ Request completed successfully!
+Saving response to: /Users/sschatke/Housing_Germany/snowflake/agents/evals/q06_bad_window.json
+✓ Response saved to /Users/sschatke/Housing_Germany/snowflake/agents/evals/q06_bad_window.json
+============================================================
+
+Agent Response:
+I can't give you an official 7-year figure. The `index_growth` methodology, which produces the official price-index changes, doesn't have a 7-year window, and I won't estimate one from other windows.
+
+The supported windows are:
+- **1m, 3m, 6m**: the last 1, 3 or 6 months
+- **YTD**: since January
+- **1y, 2y, 3y, 5y**: the last 1, 2, 3 or 5 years
+- **all**: the full history of the index
+
+Which one would you like for **houses in Germany** (purchase prices)? I can run the last 5 years, or "all" to cover the longest period available.
+

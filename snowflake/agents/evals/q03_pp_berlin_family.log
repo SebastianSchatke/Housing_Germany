@@ -1,0 +1,31 @@
+Sending request to agent HOUSING_DEV.MARKET_INSIGHTS_AGENTS.HOUSING_ANALYST
+Question: 'How many square metres can a family afford in Berlin?'
+Streaming response...
+
+
+============================================================
+✓ Request completed successfully!
+Saving response to: /Users/sschatke/Housing_Germany/snowflake/agents/evals/q03_pp_berlin_family.json
+✓ Response saved to /Users/sschatke/Housing_Germany/snowflake/agents/evals/q03_pp_berlin_family.json
+============================================================
+
+Agent Response:
+Need Berlin place id.
+
+
+Agent Response:
+Berlin is a state (AD04DE11), consistent with Bayern AD04DE9.
+
+
+Agent Response:
+A family on a median income can afford about **58.8 m²** in Berlin. That figure covers houses and apartments together and includes the realtor fee.
+
+- **Methodology:** purchasing_power, version 1
+- **Parameters:** place Berlin (AD04DE11, the state), household = family, property type = hybrid (houses and apartments combined), realtor fee = with
+- **Assumed annual interest rate:** 4.44%
+- **Data as of:** interest rates from 1 Oct 2026
+- **Run ID:** c0fcb102-e9aa-4389-9e1d-97a9535f749b
+- **Status:** passed all quality checks
+
+I can also run it for a single-person household, without the realtor fee, or for houses or apartments only.
+

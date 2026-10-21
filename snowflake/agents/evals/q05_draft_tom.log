@@ -1,0 +1,25 @@
+Sending request to agent HOUSING_DEV.MARKET_INSIGHTS_AGENTS.HOUSING_ANALYST
+Question: 'What is the time on market for houses in Hamburg?'
+Streaming response...
+
+
+============================================================
+✓ Request completed successfully!
+Saving response to: /Users/sschatke/Housing_Germany/snowflake/agents/evals/q05_draft_tom.json
+✓ Response saved to /Users/sschatke/Housing_Germany/snowflake/agents/evals/q05_draft_tom.json
+============================================================
+
+Agent Response:
+I can't give you an official time-on-market number for houses in Hamburg yet. The methodology for it (`time_on_market`, v1, median days on market by month) is still a draft and hasn't been approved, so I didn't calculate a figure myself.
+
+**Why it's still a draft:**
+- The code that builds the underlying listings data (last built 2026-08-13) can't be found. As a result, there are no agreed rules for when a listing starts or ends, or for removing duplicate listings.
+- The data is matched to places by name instead of by place ID, which can mix up places that share a name.
+
+**What happens next:** I've logged your request for the team (issue ID `7681ed9b-3564-4319-aad6-5025fa71284f`). Once those rules are defined and the methodology is approved, it will support Hamburg, houses or apartments, and buying or renting.
+
+**What you can get now:**
+- An official house price growth figure for Hamburg (supported windows: 1m, 3m, 6m, YTD, 1y, 2y, 3y, 5y, all).
+- An official purchasing power figure: how many m² a median-income single person or family can afford.
+- An exploratory look at days on market from the raw listings data. It would be clearly labelled as unofficial and could change once the methodology is finalised.
+

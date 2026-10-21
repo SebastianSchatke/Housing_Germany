@@ -1,0 +1,31 @@
+Sending request to agent HOUSING_DEV.MARKET_INSIGHTS_AGENTS.HOUSING_ANALYST
+Question: 'What is the rental yield for apartments in Munich?'
+Streaming response...
+
+
+============================================================
+✓ Request completed successfully!
+Saving response to: /Users/sschatke/Housing_Germany/snowflake/agents/evals/q04_gap_rental_yield.json
+✓ Response saved to /Users/sschatke/Housing_Germany/snowflake/agents/evals/q04_gap_rental_yield.json
+============================================================
+
+Agent Response:
+Rental yield isn't covered by an approved methodology, so I'll log the gap.
+
+
+Agent Response:
+I can't give you an official rental yield for apartments in Munich, because no approved methodology covers rental yield yet. The only approved methodologies are cumulative price index growth (`index_growth`) and purchasing power (`purchasing_power`). I didn't want to guess or work out a number myself, since that wouldn't match what other users get for the same question.
+
+I've logged your request for the methodology team as issue `e32e49ba-afc1-49fa-a207-c279c8a11dbe`.
+
+**What the team would need to decide:**
+- How rental yield is defined (gross or net, and annual rent divided by purchase price per m²).
+- Which data sources to use. The current-price data for each place looks like the most likely starting point.
+- Settings like how rent and purchase prices are matched by property type and date.
+
+**What I can give you now:**
+- **Official numbers:** price index growth for Munich apartments, either for purchase prices or rents, over windows of 1m, 3m, 6m, YTD, 1y, 2y, 3y, 5y or all.
+- **Exploratory numbers (not official):** current purchase and rent prices per m² for Munich apartments.
+
+Let me know if you'd like either of these.
+

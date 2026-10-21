@@ -1,0 +1,29 @@
+Sending request to agent HOUSING_DEV.MARKET_INSIGHTS_AGENTS.HOUSING_ANALYST
+Question: 'Wie haben sich die Wohnungspreise in Bayern in den letzten 3 Jahren entwickelt?'
+Streaming response...
+
+
+============================================================
+✓ Request completed successfully!
+Saving response to: /Users/sschatke/Housing_Germany/snowflake/agents/evals/q02_by_3y_apartment.json
+✓ Response saved to /Users/sschatke/Housing_Germany/snowflake/agents/evals/q02_by_3y_apartment.json
+============================================================
+
+Agent Response:
+Die Kaufpreise für Wohnungen in Bayern sind in den letzten 3 Jahren um **+4,8 %** gestiegen. Das ist die kumulierte Veränderung des Preisindex für Kaufpreise von Wohnungen über diesen Zeitraum.
+
+**Zum Vergleich andere Zeiträume (gleicher Lauf):**
+- 1 Jahr: +2,8 %
+- 2 Jahre: +4,8 %
+- 5 Jahre: −4,2 %
+
+**Angaben zur Berechnung:**
+- Methodik: `index_growth`, Version 1
+- Region: Bayern (AD04DE9)
+- Zeitraum: 3 Jahre (3y)
+- Objektart: Wohnung (apartment)
+- Transaktion: Kauf (TRANSACTION_TYPE.SELL)
+- Datenstand: 01.09.2026 (Snapshot vom 26.09.2026)
+- Status: Ergebnis kam aus dem Lauf-Protokoll (cached), Qualitätsprüfung bestanden
+- run_id: `83af1efa-4164-40e3-93d8-dbf4b6959c6c`
+

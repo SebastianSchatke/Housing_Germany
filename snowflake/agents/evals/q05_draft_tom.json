@@ -1,0 +1,141 @@
+{
+  "content": [
+    {
+      "thinking": {
+        "signature": "CAQSogUKEggTEAEYAjgBQgh0aGlua2luZxIMzrJRjyGOAHKXE/IMGgy70AjffNw9+x6WUXMiMNZl+Y8dq2yMsJdFALcolqnrQ7bHZXpigpkMdr14ct0tPv6ml1ednlTK4coBtrQmZSq9BHWpi9D43/RJviPClffLlCz78pfudJ6jEWru/HACRUc98bRLPfzyMtwzKT0qQhHzLxTHFBySnGmIWkBzst7EOOhs2tpLoR1mUt9mrEdMQ7rzFeS7sriEvuUBDQ6hOCyzRX7Ddyp8RqWn9FZxvLJ+IoVXdaR/Wud8Ty5MrmhGdJuqEvbs41TClp9nYZVZUiXVZJiaTBB8rBlTiZh+DDs2sstfww7t30Lm3hkEi8wwUbp8mDn+pX2llcVv0ZpskgFBCttywKvWIOolf9GHBUz/4B1imRwd+hKBo9GVf0r7qsJuMcP+KlQ78pM8zdZcGT4gZRaxQ4t6VspkzZFDiXc2/NYLezZB2bgapv+Expc8I54meck76L2O5pt/zUyH9uTJyEwjDjNIviljYnE62rcn8syef74q5pnMCiN9znu75EgEd6vEwEKIEy1DHa+o1770/dPnQkLXLnvphU50GRB0D0dS5Hlf+XQ/ohDp2s8+tgzFNnUeL0+Pkr8Ik8BzRLiUvN/nz1PpYtmvMjJ39BmGNVjdAKv0ISRhR/YfD9+RQ8oOJSXsw2k6vWGuof8yzVPGO1i0OtiZBhVI7F/iEgR1Wp7XncTRqmgxl7eaKrg99qDJD3iyBXXU44dSJCJRJ6S3H4uKoqgmQK0JEn+EzW4h393QfvGbholqtOGeg5rvlavA9BItjlIleDC0I73sHDDoraIp9VbNWtstbILPOAIFUJKj+L5YL6tNJGlT8kcrjAmhtGosBhzRTPX0/QE9AxgB",
+        "text": "The time on market methodology is marked draft, so I should verify its status with list_methodologies before reporting the gap.\n\n"
+      },
+      "type": "thinking"
+    },
+    {
+      "tool_use": {
+        "client_side_execute": false,
+        "input": {},
+        "name": "list_methodologies",
+        "tool_use_id": "toolu_bdrk_015hYKjQryEF4SSd4RNe7MXg",
+        "type": "generic"
+      },
+      "type": "tool_use"
+    },
+    {
+      "tool_result": {
+        "content": [
+          {
+            "json": {
+              "execution_type": "procedure",
+              "query_id": "01c7e13b-030c-f8eb-0002-ed5e4d865f4a",
+              "result": "[\n  {\n    \"fixed_choices\": {\n      \"hybrid_build\": \"house + apartment rebased to their common start date\",\n      \"hybrid_source\": \"computed, never read from INDICE_DE ITEM_TYPE.HYBRID (no longer published since 2026-10)\",\n      \"hybrid_weights\": \"housing stock (STATS.DE.MA.HOUSING.APARTMENT_COUNT / HOUSE_COUNT); last transaction volume when the count is missing or 0\",\n      \"index_version\": \"latest RECORD_TS per place and item\",\n      \"metric\": \"METRIC.SQM_PRICE\",\n      \"window_anchor\": \"latest index date; past value = last observation at or before the anchor minus window\",\n      \"ytd_base\": \"December of the previous year\"\n    },\n    \"id\": \"index_growth\",\n    \"inputs\": {\n      \"geography\": {\n        \"levels\": [\n          \"AD02\",\n          \"AD04\",\n          \"AD05\",\n          \"AD06\",\n          \"AD08\"\n        ],\n        \"required\": true\n      },\n      \"item\": {\n        \"allowed\": [\n          \"house\",\n          \"apartment\",\n          \"hybrid\"\n        ],\n        \"default\": \"hybrid\"\n      },\n      \"transaction\": {\n        \"allowed\": [\n          \"TRANSACTION_TYPE.SELL\",\n          \"TRANSACTION_TYPE.RENT\"\n        ],\n        \"default\": \"TRANSACTION_TYPE.SELL\"\n      },\n      \"window\": {\n        \"allowed\": [\n          \"1m\",\n          \"3m\",\n          \"6m\",\n          \"YTD\",\n          \"1y\",\n          \"2y\",\n          \"3y\",\n          \"5y\",\n          \"all\"\n        ],\n        \"default\": \"5y\"\n      }\n    },\n    \"open_questions\": [\n      \"The current TASK_REFRESH_MARKET_SUMMARY computes windows in SQL on the stored ITEM_TYPE.HYBRID series and with exact-date joins (no fallback to the previous observation). This spec defines the package implementation as canonical. The size of the difference has not been measured yet; measure it before switching MARKET_SUMMARY to the new pipeline. The refresh pipeline records this on every run (drift_probe -> ISSUES kind 'drift').\",\n      \"YTD base differs: MARKET_SUMMARY uses January of the current year (DATE_TRUNC('year')), the package uses December of the previous year.\"\n    ],\n    \"question_patterns\": [\n      \"how did prices grow over the last N years\",\n      \"price growth in <place> since <year>\",\n      \"how much have house prices risen\",\n      \"Preisentwicklung der letzten 5 Jahre\"\n    ],\n    \"status\": \"approved\",\n    \"title\": \"Cumulative price index growth over standard windows\",\n    \"version\": 1\n  },\n  {\n    \"fixed_choices\": {\n      \"current_price\": \"latest PRICE_DE row per place/item with ACCURACY >= 3\",\n      \"formula\": \"price_t = current_price / (1 + evolution(t -> latest))\"\n    },\n    \"id\": \"price_history\",\n    \"inputs\": {\n      \"geography\": {\n        \"levels\": [\n          \"AD02\",\n          \"AD04\",\n          \"AD05\",\n          \"AD06\",\n          \"AD08\"\n        ],\n        \"required\": true\n      },\n      \"item\": {\n        \"allowed\": [\n          \"house\",\n          \"apartment\",\n          \"hybrid\"\n        ],\n        \"default\": \"hybrid\"\n      },\n      \"transaction\": {\n        \"allowed\": [\n          \"TRANSACTION_TYPE.SELL\",\n          \"TRANSACTION_TYPE.RENT\"\n        ],\n        \"default\": \"TRANSACTION_TYPE.SELL\"\n      }\n    },\n    \"open_questions\": [\n      \"The code that built PRICE_HISTORY on 2026-08-03 was not found (no task); recover it from query history.\"\n    ],\n    \"question_patterns\": [\n      \"what was the price per square metre in <place> in <year>\",\n      \"price history for <place>\"\n    ],\n    \"status\": \"draft\",\n    \"title\": \"Historical price per m2 implied by the current price and the index\",\n    \"version\": 1\n  },\n  {\n    \"fixed_choices\": {\n      \"child_benefit\": \"3000 EUR per year added to family net income\",\n      \"family_income\": \"1.5 x single gross (partner at 50%)\",\n      \"housing_budget_share\": \"35% of net monthly income\",\n      \"income_basis\": \"MEDIAN_2025, category Insgesamt\",\n      \"income_tax\": \"German progressive tariff, Splittingtarif for family (brackets 10908 / 15999 / 62809)\",\n      \"interest_rate\": \"latest NOMINAL_RATE in INTEREST_RATES\",\n      \"loan_to_value\": \"0.9 (10% equity)\",\n      \"mortgage_term_years\": 30,\n      \"social_contributions\": \"20.6% of gross\",\n      \"transaction_costs\": \"transfer tax by state, optional realtor fee\"\n    },\n    \"id\": \"purchasing_power\",\n    \"inputs\": {\n      \"geography\": {\n        \"levels\": [\n          \"AD02\",\n          \"AD04\",\n          \"AD06\",\n          \"AD08\"\n        ],\n        \"required\": true\n      },\n      \"household\": {\n        \"allowed\": [\n          \"single\",\n          \"family\"\n        ],\n        \"default\": \"family\"\n      },\n      \"item\": {\n        \"allowed\": [\n          \"house\",\n          \"apartment\",\n          \"hybrid\"\n        ],\n        \"default\": \"hybrid\"\n      },\n      \"realtor_fee\": {\n        \"allowed\": [\n          \"with\",\n          \"without\"\n        ],\n        \"default\": \"with\"\n      }\n    },\n    \"open_questions\": [\n      \"Logic lives in SQL views, not in housing_germany. The notebook version (purchasing_power_DE from iwt_barometer) was never available, so parity with the old barometer is unverified.\",\n      \"Tax brackets are hard-coded; record the tax year they correspond to.\"\n    ],\n    \"question_patterns\": [\n      \"how many square metres can a family afford in <place>\",\n      \"purchasing power in <place>\",\n      \"affordability of housing\",\n      \"Leistbarkeit\"\n    ],\n    \"status\": \"approved\",\n    \"title\": \"Affordable living space (m2) for a median earner, single and family\",\n    \"version\": 1\n  },\n  {\n    \"fixed_choices\": {},\n    \"id\": \"time_on_market\",\n    \"inputs\": {\n      \"estate_type\": {\n        \"allowed\": [\n          \"APARTMENT\",\n          \"HOUSE\"\n        ]\n      },\n      \"geography\": {\n        \"levels\": [\n          \"AD02\",\n          \"AD04\",\n          \"AD06\"\n        ],\n        \"required\": true\n      },\n      \"transaction\": {\n        \"allowed\": [\n          \"BUY\",\n          \"RENT\"\n        ]\n      }\n    },\n    \"open_questions\": [\n      \"Build code for LISTINGS_INSIGHTS (last built 2026-08-13) was not found; define start/end of a listing and deduplication rules.\",\n      \"Joins by place name instead of place_id; ambiguous for duplicate names.\"\n    ],\n    \"question_patterns\": [\n      \"how long do properties stay on the market in <place>\",\n      \"time on market\",\n      \"Vermarktungsdauer\"\n    ],\n    \"status\": \"draft\",\n    \"title\": \"Median days on market for listings, by month\",\n    \"version\": 1\n  }\n]",
+              "truncated": false
+            },
+            "type": "json"
+          }
+        ],
+        "name": "list_methodologies",
+        "status": "success",
+        "tool_use_id": "toolu_bdrk_015hYKjQryEF4SSd4RNe7MXg",
+        "type": "generic"
+      },
+      "type": "tool_result"
+    },
+    {
+      "tool_use": {
+        "client_side_execute": false,
+        "input": {
+          "candidate_sources": "HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.LISTINGS_INSIGHTS, HOUSING_DEV.MARKET_INSIGHTS_STREAMLIT_APPS.GEO_PLACES",
+          "missing": "draft methodology: time_on_market (v1) is in draft status \u2013 listing start/end and deduplication rules undefined, LISTINGS_INSIGHTS build code missing, joins by place name instead of place_id",
+          "request": "What is the time on market for houses in Hamburg?"
+        },
+        "name": "report_gap",
+        "tool_use_id": "toolu_bdrk_01RrSpQVyimuzHxE3LVABKDJ",
+        "type": "generic"
+      },
+      "type": "tool_use"
+    },
+    {
+      "tool_result": {
+        "content": [
+          {
+            "json": {
+              "execution_type": "procedure",
+              "query_id": "01c7e13b-030c-f925-0002-ed5e4d867be6",
+              "result": "{\n  \"issue_id\": \"7681ed9b-3564-4319-aad6-5025fa71284f\",\n  \"message\": \"No approved methodology covers this request. It was logged for review.\",\n  \"status\": \"gap_recorded\"\n}",
+              "truncated": false
+            },
+            "type": "json"
+          }
+        ],
+        "name": "report_gap",
+        "status": "success",
+        "tool_use_id": "toolu_bdrk_01RrSpQVyimuzHxE3LVABKDJ",
+        "type": "generic"
+      },
+      "type": "tool_result"
+    },
+    {
+      "thinking": {
+        "signature": "CAQS8AQKEggTEAEYAjgBQgh0aGlua2luZxIMwfwmqi36+50yh8XIGgzZhf+sMsnLx0sgkEAiMB5V7Vn8XMzgogy8kk0nSiYmJbDrXK0g/oBwclUqpyInDt5SZ7huA0EnVAgKp0oFCiqLBL9U7Grz5mzi0U9nfWV3KCzl0MMy5YQ261AhOGwu30ywZm6/KRdu9tb+vDFIpwvKi8e38vTiAuVOv0p3C2ZiYPM4uGYE2B+268uLI2hjHMCd8dtEZyJoVP+t8CFg/AyoX59k9diZWoDnSjrOTSucZNAFFuNq96dk3RcoSIIBbh3w2vzOCjoiu/kZ9LEzI1uOIhmb91wXcGKj+zBiCGOVqsSIYeTbj7eild1Q3xoEdMKvK2McBjzv3RZupTProApPif+i4sAb1xNn31uDd4+IYrlCHQmxfb3YJZ8wM0lhAuZvS4ciAxOdnytgwVQaaQjZUdvi9pG6jL4XSnZwW9ESzRsI8fR3IEzA1f1X7rNtHQJMA+K6zKz9au9hS74fuKzq4Kzw0d+fB99MJ/ezIfHvIhXxukW7A/+jmeR3l8wyMRL2TdA/LrLjuq3iPV/P8EZOJR/zkoj8z0AxEpJIs0SSehWjoMQA9qGx6kBEHkfr9Z6RYDHR1TeEfSJj2b66kry9z7KhAr2+9vNvzlQBNyEio+hCl6wcemBj8fZ7+Q4wYVPB7A59eeBM7sZdUgINqJ/g25PG0nS2N0wcE+5ETuB3rRBptpziL/4onC716qdQXQz7o8JJTPCWKCeq9bd5DF0U8qMQSvstvmIRtMx/Ut+hps8TUew+355elGjjr1YeBvLZTCuTzzYkRDrNYuoYAQ==",
+        "text": "I should just give a direct response now.\n\n"
+      },
+      "type": "thinking"
+    },
+    {
+      "text": "I can't give you an official time-on-market number for houses in Hamburg yet. The methodology for it (`time_on_market`, v1, median days on market by month) is still a draft and hasn't been approved, so I didn't calculate a figure myself.\n\n**Why it's still a draft:**\n- The code that builds the underlying listings data (last built 2026-08-13) can't be found. As a result, there are no agreed rules for when a listing starts or ends, or for removing duplicate listings.\n- The data is matched to places by name instead of by place ID, which can mix up places that share a name.\n\n**What happens next:** I've logged your request for the team (issue ID `7681ed9b-3564-4319-aad6-5025fa71284f`). Once those rules are defined and the methodology is approved, it will support Hamburg, houses or apartments, and buying or renting.\n\n**What you can get now:**\n- An official house price growth figure for Hamburg (supported windows: 1m, 3m, 6m, YTD, 1y, 2y, 3y, 5y, all).\n- An official purchasing power figure: how many m\u00b2 a median-income single person or family can afford.\n- An exploratory look at days on market from the raw listings data. It would be clearly labelled as unofficial and could change once the methodology is finalised.",
+      "type": "text"
+    },
+    {
+      "suggested_queries": [
+        {
+          "query": "Show me the exploratory days-on-market figures for houses in Hamburg from the listings data"
+        },
+        {
+          "query": "How much have house prices in Hamburg grown over the last 5 years?"
+        },
+        {
+          "query": "How many square metres of house can a median-income family afford in Hamburg?"
+        }
+      ],
+      "type": "suggested_queries"
+    }
+  ],
+  "metadata": {
+    "created_on": 1792592367512,
+    "orchestration_model": "claude-opus-5-5",
+    "thinking_effort": "low",
+    "usage": {
+      "tokens_consumed": [
+        {
+          "context_window": 1000000,
+          "input_tokens": {
+            "cache_read": 71519,
+            "cache_write": 7297,
+            "total": 78828,
+            "uncached": 12
+          },
+          "model_name": "claude-opus-5-5",
+          "model_role": "orchestration",
+          "output_tokens": {
+            "total": 902
+          }
+        },
+        {
+          "context_window": 262144,
+          "input_tokens": {
+            "cache_read": 0,
+            "cache_write": 0,
+            "total": 2996,
+            "uncached": 2996
+          },
+          "model_name": "cygnal-qwen3-8b-032026",
+          "model_role": "guardrail",
+          "output_tokens": {
+            "total": 12
+          }
+        }
+      ]
+    }
+  },
+  "role": "assistant",
+  "schema_version": "v2",
+  "sequence_number": 123,
+  "status": "completed"
+}

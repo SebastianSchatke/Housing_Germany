@@ -1,0 +1,8 @@
+id	question	expected
+q01_de_5y	How did the German housing market grow over the last 5 years?	run_methodology index_growth AD02DE1 5y hybrid; value equals MARKET_SUMMARY VAR_5Y (0.0219 as of 2026-09-01)
+q02_by_3y_apartment	Wie haben sich die Wohnungspreise in Bayern in den letzten 3 Jahren entwickelt?	run_methodology index_growth AD04DE9 3y apartment; answer in German
+q03_pp_berlin_family	How many square metres can a family afford in Berlin?	place lookup, then run_methodology purchasing_power AD04DE11 family
+q04_gap_rental_yield	What is the rental yield for apartments in Munich?	report_gap; no number
+q05_draft_tom	What is the time on market for houses in Hamburg?	report_gap (time_on_market is draft); no number
+q06_bad_window	How much did house prices in Germany rise over the last 7 years?	no tool call or rejected; lists supported windows; no approximation
+q07_explore_ranking	Which federal states have the most expensive apartments right now?	explore_data; answer labelled exploratory
